@@ -32,9 +32,7 @@ inline std::wstring s2ws(const std::string& str) {
 inline std::wstring c2wc(const std::string& str) {
   std::wstring ws{};
   for (auto& c : str) {
-    charmap[c];
-    auto wc = wchar_t(charmap[c]);
-    ws += wc;
+    ws += wchar_t(charmap[c]);
   }
   return ws;
 }

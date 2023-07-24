@@ -57,18 +57,17 @@ public:
 
   SDL_Surface* GetTextureWS(const std::wstring& str, const Viewbox& view = Viewbox::NORMAL, SDL_Color font_color = { 255, 255, 255 }) {
     if (this->font == nullptr) exit(2);
-
-    auto wstr = str;
+    // auto wstr = str;
     auto shift = this->shift_from_top;
 
     // TODO: BOTH_HALF
     switch (view) {
       case Viewbox::UPPER_HALF:
-        wstr += L"UPPER_HALF";
+        // wstr += L"UPPER_HALF";
         shift -= (TTFManager::frame_height / 2) - 1; // 1px kinda evil hack
         break;
       case Viewbox::BOTTOM_HALF:
-        wstr += L"BOTTOM_HALF";
+        // wstr += L"BOTTOM_HALF";
         shift += (TTFManager::frame_height / 2) + 1;
         break;
     }
@@ -79,7 +78,7 @@ public:
     // }
 
     // create texture
-    auto texture = CreateCharTextureAnyway(str.c_str(), font_color);
+    auto texture = CreateTextureAnyway(str.c_str(), font_color);
     texture = ResizeSurface(texture, TTFManager::frame_width, TTFManager::frame_height, shift);
     // this->cache.Put(wstr, texture);
     return texture;
@@ -195,7 +194,7 @@ private:
     }
   }
 
-  SDL_Surface* CreateCharTextureAnyway(const wchar_t* symbol, SDL_Color font_color) {
+  SDL_Surface* CreateTextureAnyway(const wchar_t* symbol, SDL_Color font_color) {
     auto texture = TTF_RenderUNICODE_Blended(this->font, (Uint16*)symbol, font_color);
     if (texture == NULL) {
       texture = TTF_RenderUNICODE_Blended(this->font, (Uint16*)"x", font_color); // render this in case of error

@@ -37,7 +37,6 @@ struct TextString {
 
 static std::vector<TextString> g_screen_text{};
 static LRUCache<std::wstring, long> g_texpos_cache{ TEXTURE_CACHE_SIZE };
-static long g_first_texpos = 0;
 
 // ============== TEMPORARY HOOKING PART ==============
 
@@ -168,11 +167,7 @@ DFhackCExport command_result plugin_shutdown(color_ostream& out) {
 DFhackCExport command_result plugin_onstatechange(color_ostream& out, state_change_event event) {
   switch (event) {
     case SC_VIEWSCREEN_CHANGED:
-      // if (g_first_texpos < enabler->textures.init_texture_size) {
       g_texpos_cache.Clear();
-      g_first_texpos = 0;
-      // }
-      // TTFManager::instance().ClearCache();
       break;
     default:
       break;
@@ -327,7 +322,6 @@ static void renderOverlay() {
   Screen::paintString(Screen::Pen{}, 2, 51, std::format("dict: {}", Dictionary::instance().Size()));
   Screen::paintString(Screen::Pen{}, 2, 52, std::format("texpos cache: {}", g_texpos_cache.Size()));
   Screen::paintString(Screen::Pen{}, 2, 53, std::format("texpos size: {}", enabler->textures.raws.size()));
-  Screen::paintString(Screen::Pen{}, 2, 54, std::format("first texpos: {}", g_first_texpos));
 
   for (auto& text : g_screen_text) {
     for (auto i = 0; i < text.str.size(); i++) {
@@ -354,7 +348,6 @@ static void renderOverlay() {
         auto texture = TTFManager::instance().GetTextureWS(std::wstring{ text.str[i] }, flag);
         texpos = add_texture(texture);
         g_texpos_cache.Put(ws, texpos);
-        if (g_first_texpos == 0) g_first_texpos = texpos;
       }
 
       pen.ch = 0;                                       // clear default char on the tile

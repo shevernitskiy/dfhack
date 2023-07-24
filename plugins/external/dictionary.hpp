@@ -15,9 +15,7 @@ public:
   void LoadCsv(const std::string& filename) {
     std::ifstream file(filename);
     if (!file.is_open()) exit(2);
-
-    std::string line;
-    while (std::getline(file, line)) {
+    for (std::string line; std::getline(file, line);) {
       auto pair = Split(line);
       this->Add(pair);
     }
@@ -65,7 +63,7 @@ private:
     std::string delimiter = "\",\"";
     auto delimiter_pos = str.find(delimiter);
     auto key = str.substr(1, delimiter_pos - 1);
-    auto value = str.substr(delimiter_pos + 3, str.length() - key.length() - 5);
+    auto value = str.substr(delimiter_pos + 3, str.size() - key.size() - 5);
     return std::make_pair(Sanitize(key), Sanitize(value));
   }
 
