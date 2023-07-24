@@ -48,6 +48,7 @@ build/compile_commands.json
 build/dfhack_setarch.txt
 build/ImportExecutables.cmake
 build/Testing
+build/*
 
 # Python binding binaries
 *.pyc
@@ -84,3 +85,6 @@ tags
 # 3rd party downloads
 depends/steam
 depends/SDL2
+
+# ENV
+DF_PATH.txt
