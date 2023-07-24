@@ -96,39 +96,39 @@ void __fastcall HOOK(addst)(df::graphic* gps_, std::string& str, uint8_t justify
   ORIGINAL(addst)(gps_, str, justify, space);
 }
 
-// typedef void(__fastcall* addst_top)(df::graphic* gps_, std::string& str, __int64 a3);
-// SETUP_ORIG_FUNC_OFFSET(addst_top, 0x7F1760);
-// void __fastcall HOOK(addst_top)(df::graphic* gps_, std::string& str, __int64 a3) {
-//   if (auto translation = Dictionary::GetSingleton()->Get(str); translation) {
-//     auto ws = s2ws(translation.value());
-//     g_screen_text.push_back(TextString{ ws, gps_->screenx, gps_->screeny, 0, 0, 0, ScreenType::TOP });
-//     str.resize(ws.size());
-//   } else {
-//     g_screen_text.push_back(TextString{ c2wc(str), gps_->screenx, gps_->screeny, 0, 0, 0, ScreenType::TOP });
-//   }
-//   ORIGINAL(addst_top)(gps_, str, a3);
-// }
+typedef void(__fastcall* addst_top)(df::graphic* gps_, std::string& str, __int64 a3);
+SETUP_ORIG_FUNC_OFFSET(addst_top, 0x7F1760);
+void __fastcall HOOK(addst_top)(df::graphic* gps_, std::string& str, __int64 a3) {
+  if (auto translation = Dictionary::GetSingleton()->Get(str); translation) {
+    auto ws = s2ws(translation.value());
+    g_screen_text.push_back(TextString{ ws, gps_->screenx, gps_->screeny, 0, 0, 0, ScreenType::TOP });
+    str.resize(ws.size());
+  } else {
+    g_screen_text.push_back(TextString{ c2wc(str), gps_->screenx, gps_->screeny, 0, 0, 0, ScreenType::TOP });
+  }
+  ORIGINAL(addst_top)(gps_, str, a3);
+}
 
-// typedef void(__fastcall* addst_flag)(df::graphic* gps_, std::string& str, __int64 a3, __int64 a4, int flag);
-// SETUP_ORIG_FUNC_OFFSET(addst_flag, 0x7F13F0);
-// void __fastcall HOOK(addst_flag)(df::graphic* gps_, std::string& str, __int64 a3, __int64 a4, int flag) {
-//   if (auto translation = Dictionary::GetSingleton()->Get(str); translation) {
-//     auto ws = s2ws(translation.value());
-//     g_screen_text.push_back(TextString{ ws, gps_->screenx, gps_->screeny, 0, 0, flag });
-//     str.resize(ws.size());
-//   } else {
-//     g_screen_text.push_back(TextString{ c2wc(str), gps_->screenx, gps_->screeny, 0, 0, flag });
-//   }
-//   ORIGINAL(addst_flag)(gps_, str, a3, a4, flag);
-// }
+typedef void(__fastcall* addst_flag)(df::graphic* gps_, std::string& str, __int64 a3, __int64 a4, int flag);
+SETUP_ORIG_FUNC_OFFSET(addst_flag, 0x7F13F0);
+void __fastcall HOOK(addst_flag)(df::graphic* gps_, std::string& str, __int64 a3, __int64 a4, int flag) {
+  if (auto translation = Dictionary::GetSingleton()->Get(str); translation) {
+    auto ws = s2ws(translation.value());
+    g_screen_text.push_back(TextString{ ws, gps_->screenx, gps_->screeny, 0, 0, flag });
+    str.resize(ws.size());
+  } else {
+    g_screen_text.push_back(TextString{ c2wc(str), gps_->screenx, gps_->screeny, 0, 0, flag });
+  }
+  ORIGINAL(addst_flag)(gps_, str, a3, a4, flag);
+}
 
 void install_hooks() {
   DetourRestoreAfterWith();
   DetourTransactionBegin();
   DetourUpdateThread(GetCurrentThread());
   ATTACH(addst);
-  // ATTACH(addst_top);
-  // ATTACH(addst_flag);
+  ATTACH(addst_top);
+  ATTACH(addst_flag);
   DetourTransactionCommit();
 }
 
