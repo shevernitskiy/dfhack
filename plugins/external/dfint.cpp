@@ -85,7 +85,7 @@ inline auto module_handle = reinterpret_cast<uintptr_t>(GetModuleHandle(0));
 typedef void(__fastcall* addst)(df::graphic* gps_, std::string& str, uint8_t justify, int space);
 SETUP_ORIG_FUNC_OFFSET(addst, 0x7F1680)
 void __fastcall HOOK(addst)(df::graphic* gps_, std::string& str, uint8_t justify, int space) {
-  if (auto translation = Dictionary::GetSingleton()->Get(str); translation) {
+  if (auto translation = Dictionary::instance().Get(str); translation) {
     auto ws = s2ws(translation.value());
     g_screen_text.push_back(TextString{ ws, gps_->screenx, gps_->screeny, justify, space, 0 });
     // if (str.size() > ws.size()) str.resize(ws.size());
@@ -99,7 +99,7 @@ void __fastcall HOOK(addst)(df::graphic* gps_, std::string& str, uint8_t justify
 typedef void(__fastcall* addst_top)(df::graphic* gps_, std::string& str, __int64 a3);
 SETUP_ORIG_FUNC_OFFSET(addst_top, 0x7F1760);
 void __fastcall HOOK(addst_top)(df::graphic* gps_, std::string& str, __int64 a3) {
-  if (auto translation = Dictionary::GetSingleton()->Get(str); translation) {
+  if (auto translation = Dictionary::instance().Get(str); translation) {
     auto ws = s2ws(translation.value());
     g_screen_text.push_back(TextString{ ws, gps_->screenx, gps_->screeny, 0, 0, 0, ScreenType::TOP });
     str.resize(ws.size());
@@ -112,7 +112,7 @@ void __fastcall HOOK(addst_top)(df::graphic* gps_, std::string& str, __int64 a3)
 typedef void(__fastcall* addst_flag)(df::graphic* gps_, std::string& str, __int64 a3, __int64 a4, int flag);
 SETUP_ORIG_FUNC_OFFSET(addst_flag, 0x7F13F0);
 void __fastcall HOOK(addst_flag)(df::graphic* gps_, std::string& str, __int64 a3, __int64 a4, int flag) {
-  if (auto translation = Dictionary::GetSingleton()->Get(str); translation) {
+  if (auto translation = Dictionary::instance().Get(str); translation) {
     auto ws = s2ws(translation.value());
     g_screen_text.push_back(TextString{ ws, gps_->screenx, gps_->screeny, 0, 0, flag });
     str.resize(ws.size());
@@ -147,15 +147,15 @@ namespace DFHack {
 
 DFhackCExport command_result plugin_init(color_ostream& out, std::vector<PluginCommand>& commands) {
   DEBUG(log, out).print("initializing %s\n", plugin_name);
-  Dictionary::GetSingleton()->LoadCsv("./dfint_data/dfint_dictionary_utf.csv");
-  TTFManager::GetSingleton()->LoadFont("terminus_bold.ttf", 14, 2);
+  Dictionary::instance().LoadCsv("./dfint_data/dfint_dictionary_utf.csv");
+  TTFManager::instance().LoadFont("terminus_bold.ttf", 14, 2);
   install_hooks();
   return CR_OK;
 }
 
 DFhackCExport command_result plugin_shutdown(color_ostream& out) {
   DEBUG(log, out).print("shutting down %s\n", plugin_name);
-  TTFManager::GetSingleton()->Quit();
+  TTFManager::instance().Quit();
   return CR_OK;
 }
 
@@ -163,7 +163,7 @@ DFhackCExport command_result plugin_onstatechange(color_ostream& out, state_chan
   switch (event) {
     case SC_VIEWSCREEN_CHANGED:
       g_texpos_cache.Clear();
-      // TTFManager::GetSingleton()->ClearCache();
+      // TTFManager::instance().ClearCache();
       break;
     default:
       break;
@@ -315,7 +315,7 @@ long add_texture(SDL_Surface* texture) {
 
 static void renderOverlay() {
   Screen::paintString(Screen::Pen{}, 2, 50, std::format("total strings: {}", g_screen_text.size()));
-  Screen::paintString(Screen::Pen{}, 2, 51, std::format("dict: {}", Dictionary::GetSingleton()->Size()));
+  Screen::paintString(Screen::Pen{}, 2, 51, std::format("dict: {}", Dictionary::instance().Size()));
   Screen::paintString(Screen::Pen{}, 2, 52, std::format("texpos cache: {}", g_texpos_cache.Size()));
   Screen::paintString(Screen::Pen{}, 2, 53, std::format("texpos size: {}", enabler->textures.raws.size()));
 
@@ -341,7 +341,7 @@ static void renderOverlay() {
       if (auto cached_textpos = g_texpos_cache.Get(ws); cached_textpos) {
         texpos = cached_textpos.value().get();
       } else {
-        auto texture = TTFManager::GetSingleton()->GetTextureWS(std::wstring{ text.str[i] }, flag);
+        auto texture = TTFManager::instance().GetTextureWS(std::wstring{ text.str[i] }, flag);
         texpos = add_texture(texture);
         g_texpos_cache.Put(ws, texpos);
       }

@@ -7,9 +7,9 @@
 
 class Dictionary {
 public:
-  [[nodiscard]] static Dictionary* GetSingleton() {
+  [[nodiscard]] static Dictionary& instance() {
     static Dictionary singleton;
-    return &singleton;
+    return singleton;
   }
 
   void LoadCsv(const std::string& filename) {

@@ -21,9 +21,9 @@ public:
     BOTTOM_HALF,
   };
 
-  [[nodiscard]] static TTFManager* GetSingleton() {
+  [[nodiscard]] static TTFManager& instance() {
     static TTFManager singleton;
-    return &singleton;
+    return singleton;
   }
 
   void Init() {
