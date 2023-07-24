@@ -37,6 +37,7 @@ struct TextString {
 
 static std::vector<TextString> g_screen_text{};
 static LRUCache<std::wstring, long> g_texpos_cache{ TEXTURE_CACHE_SIZE };
+static long g_first_texpos = 0;
 
 // ============== TEMPORARY HOOKING PART ==============
 
@@ -85,41 +86,46 @@ inline auto module_handle = reinterpret_cast<uintptr_t>(GetModuleHandle(0));
 typedef void(__fastcall* addst)(df::graphic* gps_, std::string& str, uint8_t justify, int space);
 SETUP_ORIG_FUNC_OFFSET(addst, 0x7F1680)
 void __fastcall HOOK(addst)(df::graphic* gps_, std::string& str, uint8_t justify, int space) {
+  // idk why, but we can't resize incoming string
+  // on next frame we can't use it for translation
+  // not cheap withouta  doubt
+  auto tmp = str;
   if (auto translation = Dictionary::instance().Get(str); translation) {
     auto ws = s2ws(translation.value());
     g_screen_text.push_back(TextString{ ws, gps_->screenx, gps_->screeny, justify, space, 0 });
-    // if (str.size() > ws.size()) str.resize(ws.size());
-    str.resize(ws.size());
+    tmp.resize(ws.size());
   } else {
     g_screen_text.push_back(TextString{ c2wc(str), gps_->screenx, gps_->screeny, justify, space, 0 });
   }
-  ORIGINAL(addst)(gps_, str, justify, space);
+  ORIGINAL(addst)(gps_, tmp, justify, space);
 }
 
 typedef void(__fastcall* addst_top)(df::graphic* gps_, std::string& str, __int64 a3);
 SETUP_ORIG_FUNC_OFFSET(addst_top, 0x7F1760);
 void __fastcall HOOK(addst_top)(df::graphic* gps_, std::string& str, __int64 a3) {
+  auto tmp = str;
   if (auto translation = Dictionary::instance().Get(str); translation) {
     auto ws = s2ws(translation.value());
     g_screen_text.push_back(TextString{ ws, gps_->screenx, gps_->screeny, 0, 0, 0, ScreenType::TOP });
-    str.resize(ws.size());
+    tmp.resize(ws.size());
   } else {
     g_screen_text.push_back(TextString{ c2wc(str), gps_->screenx, gps_->screeny, 0, 0, 0, ScreenType::TOP });
   }
-  ORIGINAL(addst_top)(gps_, str, a3);
+  ORIGINAL(addst_top)(gps_, tmp, a3);
 }
 
 typedef void(__fastcall* addst_flag)(df::graphic* gps_, std::string& str, __int64 a3, __int64 a4, int flag);
 SETUP_ORIG_FUNC_OFFSET(addst_flag, 0x7F13F0);
 void __fastcall HOOK(addst_flag)(df::graphic* gps_, std::string& str, __int64 a3, __int64 a4, int flag) {
+  auto tmp = str;
   if (auto translation = Dictionary::instance().Get(str); translation) {
     auto ws = s2ws(translation.value());
     g_screen_text.push_back(TextString{ ws, gps_->screenx, gps_->screeny, 0, 0, flag });
-    str.resize(ws.size());
+    tmp.resize(ws.size(), '\0');
   } else {
     g_screen_text.push_back(TextString{ c2wc(str), gps_->screenx, gps_->screeny, 0, 0, flag });
   }
-  ORIGINAL(addst_flag)(gps_, str, a3, a4, flag);
+  ORIGINAL(addst_flag)(gps_, tmp, a3, a4, flag);
 }
 
 void install_hooks() {
@@ -162,7 +168,10 @@ DFhackCExport command_result plugin_shutdown(color_ostream& out) {
 DFhackCExport command_result plugin_onstatechange(color_ostream& out, state_change_event event) {
   switch (event) {
     case SC_VIEWSCREEN_CHANGED:
+      // if (g_first_texpos < enabler->textures.init_texture_size) {
       g_texpos_cache.Clear();
+      g_first_texpos = 0;
+      // }
       // TTFManager::instance().ClearCache();
       break;
     default:
@@ -318,6 +327,7 @@ static void renderOverlay() {
   Screen::paintString(Screen::Pen{}, 2, 51, std::format("dict: {}", Dictionary::instance().Size()));
   Screen::paintString(Screen::Pen{}, 2, 52, std::format("texpos cache: {}", g_texpos_cache.Size()));
   Screen::paintString(Screen::Pen{}, 2, 53, std::format("texpos size: {}", enabler->textures.raws.size()));
+  Screen::paintString(Screen::Pen{}, 2, 54, std::format("first texpos: {}", g_first_texpos));
 
   for (auto& text : g_screen_text) {
     for (auto i = 0; i < text.str.size(); i++) {
@@ -344,6 +354,7 @@ static void renderOverlay() {
         auto texture = TTFManager::instance().GetTextureWS(std::wstring{ text.str[i] }, flag);
         texpos = add_texture(texture);
         g_texpos_cache.Put(ws, texpos);
+        if (g_first_texpos == 0) g_first_texpos = texpos;
       }
 
       pen.ch = 0;                                       // clear default char on the tile
