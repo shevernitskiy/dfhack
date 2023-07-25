@@ -94,6 +94,14 @@ private:
     delete this;
   };
 
+  SDL_Surface* CreateTextureAnyway(const wchar_t* symbol, SDL_Color font_color) {
+    auto texture = TTF_RenderUNICODE_Blended(this->font, (Uint16*)symbol, font_color);
+    if (texture == NULL) {
+      texture = TTF_RenderUNICODE_Blended(this->font, (Uint16*)"x", font_color); // render this in case of error
+    }
+    return texture;
+  }
+
   SDL_Surface* ResizeSurface(SDL_Surface* surface, int width, int height, int shift_from_top) {
     // should check cause it may crashed
     if (!surface || !width || !height) {
@@ -137,7 +145,6 @@ private:
 
   void DrawPixel(SDL_Surface* surface, int x, int y, Uint32 pixel) {
     int bpp = surface->format->BytesPerPixel;
-    /* Here p is the address to the pixel we want to set */
     Uint8* p = (Uint8*)surface->pixels + y * surface->pitch + x * bpp;
 
     switch (bpp) {
@@ -164,42 +171,22 @@ private:
     }
   }
 
-  Uint32 ReadPixel(SDL_Surface* surface, int x, int y) {
+  static Uint32 ReadPixel(SDL_Surface* surface, int x, int y) {
     int bpp = surface->format->BytesPerPixel;
-    /* Here p is the address to the pixel we want to retrieve */
     Uint8* p = (Uint8*)surface->pixels + y * surface->pitch + x * bpp;
 
     switch (bpp) {
       case 1:
         return *p;
-        break;
-
       case 2:
         return *(Uint16*)p;
-        break;
-
       case 3:
-        if (SDL_BYTEORDER == SDL_BIG_ENDIAN)
-          return p[0] << 16 | p[1] << 8 | p[2];
-        else
-          return p[0] | p[1] << 8 | p[2] << 16;
-        break;
-
+        return SDL_BYTEORDER == SDL_BIG_ENDIAN ? p[0] << 16 | p[1] << 8 | p[2] : p[0] | p[1] << 8 | p[2] << 16;
       case 4:
         return *(Uint32*)p;
-        break;
-
       default:
-        return 0; /* shouldn't happen, but avoids warnings */
+        return 0;
     }
-  }
-
-  SDL_Surface* CreateTextureAnyway(const wchar_t* symbol, SDL_Color font_color) {
-    auto texture = TTF_RenderUNICODE_Blended(this->font, (Uint16*)symbol, font_color);
-    if (texture == NULL) {
-      texture = TTF_RenderUNICODE_Blended(this->font, (Uint16*)"x", font_color); // render this in case of error
-    }
-    return texture;
   }
 
   // LRUCache<std::wstring, SDL_Surface*> cache{ TEXTURE_CACHE_SIZE }; // we can do it without caching textures cause we have cached texpos
