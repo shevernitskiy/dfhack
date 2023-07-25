@@ -5,11 +5,11 @@
 - [ ] new world creation missing reset cache event
 - [ ] copy original string to temp value and then resize it - not the best solution (perf)
 - [ ] handling "both half lines" not implemented
-
+- [ ] string truncate
 
 # Possible improvement
 
-- [ ] abstract ttf manager, make a module
+- [x] abstract ttf manager, make a module (draft concept)
 - [ ] add dynamic texture loading to Texture module
 - [ ] make an interface for the plugin
 - [ ] hot reload for font and csv

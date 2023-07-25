@@ -11,6 +11,7 @@
 
 #include "cache.hpp"
 #include "dictionary.hpp"
+#include "texpos.hpp"
 #include "ttf.hpp"
 #include "utils.hpp"
 
@@ -29,6 +30,8 @@ struct TextString {
   std::wstring str;
   int32_t x;
   long y;
+  std::pair<long, long> clipx;
+  std::pair<long, long> clipy;
   uint8_t justification;
   int space;
   int flag;
@@ -37,6 +40,8 @@ struct TextString {
 
 static std::vector<TextString> g_screen_text{};
 static LRUCache<std::wstring, long> g_texpos_cache{ TEXTURE_CACHE_SIZE };
+
+// static LRUCache<std::wstring, TexposManager::TexposHandle> g_texpos_hanlde_cache{ TEXTURE_CACHE_SIZE };
 
 // ============== TEMPORARY HOOKING PART ==============
 
@@ -91,10 +96,12 @@ void __fastcall HOOK(addst)(df::graphic* gps_, std::string& str, uint8_t justify
   auto tmp = str;
   if (auto translation = Dictionary::instance().Get(str); translation) {
     auto ws = s2ws(translation.value());
-    g_screen_text.push_back(TextString{ ws, gps_->screenx, gps_->screeny, justify, space, 0 });
+    g_screen_text.push_back(TextString{ ws, gps_->screenx, gps_->screeny, std::make_pair(gps_->clipx[0], gps_->clipx[1]),
+                                        std::make_pair(gps_->clipy[0], gps_->clipy[1]), justify, space, 0 });
     tmp.resize(ws.size());
   } else {
-    g_screen_text.push_back(TextString{ c2wc(str), gps_->screenx, gps_->screeny, justify, space, 0 });
+    g_screen_text.push_back(TextString{ c2wc(str), gps_->screenx, gps_->screeny, std::make_pair(gps_->clipx[0], gps_->clipx[1]),
+                                        std::make_pair(gps_->clipy[0], gps_->clipy[1]), justify, space, 0 });
   }
   ORIGINAL(addst)(gps_, tmp, justify, space);
 }
@@ -105,10 +112,12 @@ void __fastcall HOOK(addst_top)(df::graphic* gps_, std::string& str, __int64 a3)
   auto tmp = str;
   if (auto translation = Dictionary::instance().Get(str); translation) {
     auto ws = s2ws(translation.value());
-    g_screen_text.push_back(TextString{ ws, gps_->screenx, gps_->screeny, 0, 0, 0, ScreenType::TOP });
+    g_screen_text.push_back(TextString{ ws, gps_->screenx, gps_->screeny, std::make_pair(gps_->clipx[0], gps_->clipx[1]),
+                                        std::make_pair(gps_->clipy[0], gps_->clipy[1]), 0, 0, 0, ScreenType::TOP });
     tmp.resize(ws.size());
   } else {
-    g_screen_text.push_back(TextString{ c2wc(str), gps_->screenx, gps_->screeny, 0, 0, 0, ScreenType::TOP });
+    g_screen_text.push_back(TextString{ c2wc(str), gps_->screenx, gps_->screeny, std::make_pair(gps_->clipx[0], gps_->clipx[1]),
+                                        std::make_pair(gps_->clipy[0], gps_->clipy[1]), 0, 0, 0, ScreenType::TOP });
   }
   ORIGINAL(addst_top)(gps_, tmp, a3);
 }
@@ -119,10 +128,12 @@ void __fastcall HOOK(addst_flag)(df::graphic* gps_, std::string& str, __int64 a3
   auto tmp = str;
   if (auto translation = Dictionary::instance().Get(str); translation) {
     auto ws = s2ws(translation.value());
-    g_screen_text.push_back(TextString{ ws, gps_->screenx, gps_->screeny, 0, 0, flag });
+    g_screen_text.push_back(TextString{ ws, gps_->screenx, gps_->screeny, std::make_pair(gps_->clipx[0], gps_->clipx[1]),
+                                        std::make_pair(gps_->clipy[0], gps_->clipy[1]), 0, 0, flag });
     tmp.resize(ws.size(), '\0');
   } else {
-    g_screen_text.push_back(TextString{ c2wc(str), gps_->screenx, gps_->screeny, 0, 0, flag });
+    g_screen_text.push_back(TextString{ c2wc(str), gps_->screenx, gps_->screeny, std::make_pair(gps_->clipx[0], gps_->clipx[1]),
+                                        std::make_pair(gps_->clipy[0], gps_->clipy[1]), 0, 0, flag });
   }
   ORIGINAL(addst_flag)(gps_, tmp, a3, a4, flag);
 }
@@ -152,7 +163,7 @@ namespace DFHack {
 
 DFhackCExport command_result plugin_init(color_ostream& out, std::vector<PluginCommand>& commands) {
   DEBUG(log, out).print("initializing %s\n", plugin_name);
-  Dictionary::instance().LoadCsv("./dfint_data/dfint_dictionary_utf.csv");
+  Dictionary::instance().LoadCsv("./dfint_data/dfint_dictionary_ru_utf.csv");
   TTFManager::instance().LoadFont("terminus_bold.ttf", 14, 2);
   install_hooks();
   return CR_OK;
@@ -167,7 +178,8 @@ DFhackCExport command_result plugin_shutdown(color_ostream& out) {
 DFhackCExport command_result plugin_onstatechange(color_ostream& out, state_change_event event) {
   switch (event) {
     case SC_VIEWSCREEN_CHANGED:
-      g_texpos_cache.Clear();
+      // g_texpos_cache.Clear();
+      TexposManager::instance().ResetTexpos();
       break;
     default:
       break;
@@ -320,11 +332,14 @@ long add_texture(SDL_Surface* texture) {
 static void renderOverlay() {
   Screen::paintString(Screen::Pen{}, 2, 50, std::format("total strings: {}", g_screen_text.size()));
   Screen::paintString(Screen::Pen{}, 2, 51, std::format("dict: {}", Dictionary::instance().Size()));
-  Screen::paintString(Screen::Pen{}, 2, 52, std::format("texpos cache: {}", g_texpos_cache.Size()));
+  Screen::paintString(Screen::Pen{}, 2, 52, std::format("texposcache: {}", g_texpos_cache.Size()));
   Screen::paintString(Screen::Pen{}, 2, 53, std::format("texpos size: {}", enabler->textures.raws.size()));
+  // Screen::paintString(Screen::Pen{}, 2, 54, std::format("tm texpos: {}", TexposManager::instance().SizeTexpos()));
+  // Screen::paintString(Screen::Pen{}, 2, 55, std::format("tm surface: {}", TexposManager::instance().SizeSurface()));
 
   for (auto& text : g_screen_text) {
     for (auto i = 0; i < text.str.size(); i++) {
+      if (text.x + i >= text.clipx.second - 4) break;
       auto pen = read_tile(text.x + i, text.y, text.screen_type);
 
       std::wstring ws{ text.str[i] };
@@ -342,13 +357,24 @@ static void renderOverlay() {
 
       // use cached texpos or get a new one
       long texpos = 0;
-      if (auto cached_textpos = g_texpos_cache.Get(ws); cached_textpos) {
-        texpos = cached_textpos.value().get();
+      if (auto cached_texpos = g_texpos_cache.Get(ws); cached_texpos) {
+        texpos = cached_texpos.value().get();
       } else {
         auto texture = TTFManager::instance().GetTextureWS(std::wstring{ text.str[i] }, flag);
         texpos = add_texture(texture);
         g_texpos_cache.Put(ws, texpos);
       }
+
+      // auto& tm = TexposManager::instance();
+      // long texpos = 0;
+      // if (auto cached_texpos_handle = g_texpos_hanlde_cache.Get(ws); cached_texpos_handle) {
+      //   texpos = tm.getTexposByHandle(cached_texpos_handle.value()).value(); // handle NULLOPT!
+      // } else {
+      //   auto texture = TTFManager::instance().GetTextureWS(std::wstring{ text.str[i] }, flag);
+      //   auto handle = tm.getNewHandle(texture);
+      //   g_texpos_hanlde_cache.Put(ws, handle);
+      //   texpos = tm.getTexposByHandle(cached_texpos_handle.value()).value();
+      // }
 
       pen.ch = 0;                                       // clear default char on the tile
       pen.tile_mode = Screen::Pen::TileMode::CharColor; // use colors from original char
