@@ -77,7 +77,7 @@ static LRUCache<std::wstring, long> g_texpos_cache{ TEXTURE_CACHE_SIZE };
 #define NOSERVICE        // All Service Controller routines, SERVICE_ equates, etc.
 #include <Windows.h>
 
-#include "detours.h"
+#include "deps/detours/detours.h"
 
 inline auto module_handle = reinterpret_cast<uintptr_t>(GetModuleHandle(0));
 
@@ -178,8 +178,8 @@ DFhackCExport command_result plugin_shutdown(color_ostream& out) {
 DFhackCExport command_result plugin_onstatechange(color_ostream& out, state_change_event event) {
   switch (event) {
     case SC_VIEWSCREEN_CHANGED:
-      // g_texpos_cache.Clear();
-      TexposManager::instance().ResetTexpos();
+      g_texpos_cache.Clear();
+      // TexposManager::instance().ResetTexpos();
       break;
     default:
       break;
@@ -332,14 +332,14 @@ long add_texture(SDL_Surface* texture) {
 static void renderOverlay() {
   Screen::paintString(Screen::Pen{}, 2, 50, std::format("total strings: {}", g_screen_text.size()));
   Screen::paintString(Screen::Pen{}, 2, 51, std::format("dict: {}", Dictionary::instance().Size()));
-  Screen::paintString(Screen::Pen{}, 2, 52, std::format("texposcache: {}", g_texpos_cache.Size()));
+  Screen::paintString(Screen::Pen{}, 2, 52, std::format("texpos cache: {}", g_texpos_cache.Size()));
   Screen::paintString(Screen::Pen{}, 2, 53, std::format("texpos size: {}", enabler->textures.raws.size()));
   // Screen::paintString(Screen::Pen{}, 2, 54, std::format("tm texpos: {}", TexposManager::instance().SizeTexpos()));
   // Screen::paintString(Screen::Pen{}, 2, 55, std::format("tm surface: {}", TexposManager::instance().SizeSurface()));
 
   for (auto& text : g_screen_text) {
     for (auto i = 0; i < text.str.size(); i++) {
-      if (text.x + i >= text.clipx.second - 4) break;
+      if (text.x + i >= text.clipx.second - 4) break; // why it's do not work?
       auto pen = read_tile(text.x + i, text.y, text.screen_type);
 
       std::wstring ws{ text.str[i] };
@@ -355,7 +355,7 @@ static void renderOverlay() {
         ws += L"BOTTOM_HALF";
       }
 
-      // use cached texpos or get a new one
+      // use cached texpos or get a new one long texpos = 0;
       long texpos = 0;
       if (auto cached_texpos = g_texpos_cache.Get(ws); cached_texpos) {
         texpos = cached_texpos.value().get();

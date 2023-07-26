@@ -4,8 +4,8 @@
 #  define TEXTURE_CACHE_SIZE 500
 #endif
 
-#include "SDL_ttf.h"
 #include "cache.hpp"
+#include "deps/sdl_ttf/SDL_ttf.h"
 #include "modules/DFSDL.h"
 #include <SDL.h>
 

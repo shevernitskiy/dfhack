@@ -1,10 +1,9 @@
 #pragma once
 
+#include "deps/phmap/phmap.h"
 #include "df/enabler.h"
 #include "modules/DFSDL.h"
-#include "phmap/phmap.h"
 #include <SDL.h>
-#include <tinythread.h>
 
 #include <cstdint>
 #include <optional>
