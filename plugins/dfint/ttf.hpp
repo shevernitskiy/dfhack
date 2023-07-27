@@ -27,7 +27,7 @@ public:
   }
 
   void Init() {
-    if (TTF_Init() == -1) exit(2);
+    TTF_Init();
   }
 
   void Quit() {
@@ -35,6 +35,10 @@ public:
       TTF_CloseFont(this->font);
     }
     TTF_Quit();
+  }
+
+  bool isInit() const {
+    return this->font != nullptr;
   }
 
   void LoadFont(const std::string& file, int ptsize, int shift_from_top = 0) {

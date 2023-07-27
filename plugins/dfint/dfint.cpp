@@ -2,10 +2,15 @@
 #include "Debug.h"
 #include "LuaTools.h"
 #include "PluginManager.h"
+#include <VTableInterpose.h>
 
 #include "df/enabler.h"
 #include "df/graphic_viewportst.h"
 #include "df/init.h"
+#include "df/viewscreen_adopt_regionst.h"
+// #include "df/viewscreen_new_arenast.h"
+#include "df/viewscreen_loadgamest.h"
+#include "df/viewscreen_new_regionst.h"
 #include "df/viewscreen_titlest.h"
 #include "modules/Screen.h"
 
@@ -21,7 +26,7 @@
 
 #define TEXTURE_CACHE_SIZE 500
 
-enum ScreenType {
+enum ScreenType : uint8_t {
   MAIN,
   TOP
 };
@@ -32,10 +37,10 @@ struct TextString {
   long y;
   std::pair<long, long> clipx;
   std::pair<long, long> clipy;
-  uint8_t justification;
-  int space;
-  int flag;
   ScreenType screen_type = ScreenType::MAIN;
+  int flag = 0;
+  uint8_t justification = 0;
+  int space = 0;
 };
 
 static std::vector<TextString> g_screen_text{};
@@ -93,49 +98,63 @@ void __fastcall HOOK(addst)(df::graphic* gps_, std::string& str, uint8_t justify
   // idk why, but we can't resize incoming string
   // on next frame we can't use it for translation
   // not cheap withouta  doubt
-  auto tmp = str;
   if (auto translation = Dictionary::instance().Get(str); translation) {
     auto ws = s2ws(translation.value());
     g_screen_text.push_back(TextString{ ws, gps_->screenx, gps_->screeny, std::make_pair(gps_->clipx[0], gps_->clipx[1]),
-                                        std::make_pair(gps_->clipy[0], gps_->clipy[1]), justify, space, 0 });
+                                        std::make_pair(gps_->clipy[0], gps_->clipy[1]), ScreenType::MAIN, 0, justify, space });
+    auto tmp = str;
     tmp.resize(ws.size());
+    ORIGINAL(addst)(gps_, tmp, justify, space);
   } else {
     g_screen_text.push_back(TextString{ c2wc(str), gps_->screenx, gps_->screeny, std::make_pair(gps_->clipx[0], gps_->clipx[1]),
-                                        std::make_pair(gps_->clipy[0], gps_->clipy[1]), justify, space, 0 });
+                                        std::make_pair(gps_->clipy[0], gps_->clipy[1]), ScreenType::MAIN, 0, justify, space });
+    ORIGINAL(addst)(gps_, str, justify, space);
   }
-  ORIGINAL(addst)(gps_, tmp, justify, space);
+  // g_screen_text.push_back(TextString{ c2wc(str), gps_->screenx, gps_->screeny, std::make_pair(gps_->clipx[0], gps_->clipx[1]),
+  //                                     std::make_pair(gps_->clipy[0], gps_->clipy[1]), ScreenType::MAIN, 0, justify, space });
+  // ORIGINAL(addst)(gps_, str, justify, space);
 }
 
 typedef void(__fastcall* addst_top)(df::graphic* gps_, std::string& str, __int64 a3);
 SETUP_ORIG_FUNC_OFFSET(addst_top, 0x7F1760);
 void __fastcall HOOK(addst_top)(df::graphic* gps_, std::string& str, __int64 a3) {
-  auto tmp = str;
   if (auto translation = Dictionary::instance().Get(str); translation) {
     auto ws = s2ws(translation.value());
     g_screen_text.push_back(TextString{ ws, gps_->screenx, gps_->screeny, std::make_pair(gps_->clipx[0], gps_->clipx[1]),
-                                        std::make_pair(gps_->clipy[0], gps_->clipy[1]), 0, 0, 0, ScreenType::TOP });
+                                        std::make_pair(gps_->clipy[0], gps_->clipy[1]), ScreenType::TOP });
+    auto tmp = str;
     tmp.resize(ws.size());
+    ORIGINAL(addst_top)(gps_, tmp, a3);
   } else {
     g_screen_text.push_back(TextString{ c2wc(str), gps_->screenx, gps_->screeny, std::make_pair(gps_->clipx[0], gps_->clipx[1]),
-                                        std::make_pair(gps_->clipy[0], gps_->clipy[1]), 0, 0, 0, ScreenType::TOP });
+                                        std::make_pair(gps_->clipy[0], gps_->clipy[1]), ScreenType::TOP });
+    ORIGINAL(addst_top)(gps_, str, a3);
   }
-  ORIGINAL(addst_top)(gps_, tmp, a3);
+
+  // g_screen_text.push_back(TextString{ c2wc(str), gps_->screenx, gps_->screeny, std::make_pair(gps_->clipx[0], gps_->clipx[1]),
+  //                                     std::make_pair(gps_->clipy[0], gps_->clipy[1]), ScreenType::TOP });
+  // ORIGINAL(addst_top)(gps_, str, a3);
 }
 
 typedef void(__fastcall* addst_flag)(df::graphic* gps_, std::string& str, __int64 a3, __int64 a4, int flag);
 SETUP_ORIG_FUNC_OFFSET(addst_flag, 0x7F13F0);
 void __fastcall HOOK(addst_flag)(df::graphic* gps_, std::string& str, __int64 a3, __int64 a4, int flag) {
-  auto tmp = str;
   if (auto translation = Dictionary::instance().Get(str); translation) {
     auto ws = s2ws(translation.value());
     g_screen_text.push_back(TextString{ ws, gps_->screenx, gps_->screeny, std::make_pair(gps_->clipx[0], gps_->clipx[1]),
-                                        std::make_pair(gps_->clipy[0], gps_->clipy[1]), 0, 0, flag });
-    tmp.resize(ws.size(), '\0');
+                                        std::make_pair(gps_->clipy[0], gps_->clipy[1]), ScreenType::MAIN, flag });
+    auto tmp = str;
+    tmp.resize(ws.size());
+    ORIGINAL(addst_flag)(gps_, tmp, a3, a4, flag);
   } else {
     g_screen_text.push_back(TextString{ c2wc(str), gps_->screenx, gps_->screeny, std::make_pair(gps_->clipx[0], gps_->clipx[1]),
-                                        std::make_pair(gps_->clipy[0], gps_->clipy[1]), 0, 0, flag });
+                                        std::make_pair(gps_->clipy[0], gps_->clipy[1]), ScreenType::MAIN, flag });
+    ORIGINAL(addst_flag)(gps_, str, a3, a4, flag);
   }
-  ORIGINAL(addst_flag)(gps_, tmp, a3, a4, flag);
+
+  // g_screen_text.push_back(TextString{ c2wc(str), gps_->screenx, gps_->screeny, std::make_pair(gps_->clipx[0], gps_->clipx[1]),
+  //                                     std::make_pair(gps_->clipy[0], gps_->clipy[1]), ScreenType::MAIN, flag });
+  // ORIGINAL(addst_flag)(gps_, str, a3, a4, flag);
 }
 
 void install_hooks() {
@@ -161,32 +180,121 @@ namespace DFHack {
   DBG_DECLARE(dfint, log, DebugCategory::LDEBUG);
 }
 
+void reset_textures() {
+  g_texpos_cache.Clear();
+}
+
+// reseting on Create New World
+struct tracking_stage_new_region : df::viewscreen_new_regionst {
+  typedef df::viewscreen_new_regionst interpose_base;
+
+  DEFINE_VMETHOD_INTERPOSE(void, logic, ()) {
+    if (this->m_raw_load_stage != this->raw_load_stage) {
+      this->m_raw_load_stage = this->raw_load_stage;
+      if (this->m_raw_load_stage == 1) reset_textures();
+    }
+    INTERPOSE_NEXT(logic)();
+  }
+
+private:
+  int m_raw_load_stage = -2;
+};
+IMPLEMENT_VMETHOD_INTERPOSE(tracking_stage_new_region, logic);
+
+// reseting on Starting new game in existing world
+struct tracking_stage_adopt_region : df::viewscreen_adopt_regionst {
+  typedef df::viewscreen_adopt_regionst interpose_base;
+
+  DEFINE_VMETHOD_INTERPOSE(void, logic, ()) {
+    if (this->m_progress != this->progress) {
+      DEBUG(log).print("adopt progress %i\n", this->progress);
+      this->m_progress = this->progress;
+      if (this->m_progress == 1) reset_textures();
+    }
+    INTERPOSE_NEXT(logic)();
+  }
+
+private:
+  int m_progress = -2;
+};
+IMPLEMENT_VMETHOD_INTERPOSE(tracking_stage_adopt_region, logic);
+
+// reseting on Load game
+struct tracking_stage_load_region : df::viewscreen_loadgamest {
+  typedef df::viewscreen_loadgamest interpose_base;
+
+  DEFINE_VMETHOD_INTERPOSE(void, logic, ()) {
+    if (this->m_progress != this->progress) {
+      DEBUG(log).print("load game progress %i\n", this->progress);
+      this->m_progress = this->progress;
+      if (this->m_progress == 1) reset_textures();
+    }
+    INTERPOSE_NEXT(logic)();
+  }
+
+private:
+  int m_progress = -2;
+};
+IMPLEMENT_VMETHOD_INTERPOSE(tracking_stage_load_region, logic);
+
+// reseting on new arena
+// struct tracking_stage_new_arena : df::viewscreen_new_arenast {
+//   typedef df::viewscreen_new_arenast interpose_base;
+
+//   DEFINE_VMETHOD_INTERPOSE(void, logic, ()) {
+//     INTERPOSE_NEXT(logic)();
+//     int progress = *(int*)(this + 0x8c);
+//     if (this->m_progress != progress) {
+//       DEBUG(log).print("arena progress %i\n", progress);
+//       this->m_progress = progress;
+//       if (this->m_progress == 1) reset_textures();
+//     }
+//     INTERPOSE_NEXT(logic)();
+//   }
+
+// private:
+//   int m_progress = -2;
+// };
+// IMPLEMENT_VMETHOD_INTERPOSE(tracking_stage_new_arena, logic);
+
 DFhackCExport command_result plugin_init(color_ostream& out, std::vector<PluginCommand>& commands) {
   DEBUG(log, out).print("initializing %s\n", plugin_name);
   Dictionary::instance().LoadCsv("./dfint_data/dfint_dictionary_ru_utf.csv");
   TTFManager::instance().LoadFont("terminus_bold.ttf", 14, 2);
   install_hooks();
+
+  INTERPOSE_HOOK(tracking_stage_new_region, logic).apply();
+  INTERPOSE_HOOK(tracking_stage_adopt_region, logic).apply();
+  INTERPOSE_HOOK(tracking_stage_load_region, logic).apply();
+  // INTERPOSE_HOOK(tracking_stage_new_arena, logic).apply();
+
   return CR_OK;
 }
 
 DFhackCExport command_result plugin_shutdown(color_ostream& out) {
   DEBUG(log, out).print("shutting down %s\n", plugin_name);
   TTFManager::instance().Quit();
-  return CR_OK;
-}
 
-DFhackCExport command_result plugin_onstatechange(color_ostream& out, state_change_event event) {
-  switch (event) {
-    case SC_VIEWSCREEN_CHANGED:
-      g_texpos_cache.Clear();
-      // TexposManager::instance().ResetTexpos();
-      break;
-    default:
-      break;
-  }
+  INTERPOSE_HOOK(tracking_stage_new_region, logic).remove();
+  INTERPOSE_HOOK(tracking_stage_adopt_region, logic).remove();
+  INTERPOSE_HOOK(tracking_stage_load_region, logic).remove();
+  // INTERPOSE_HOOK(tracking_stage_new_arena, logic).remove();
 
   return CR_OK;
 }
+
+// DFhackCExport command_result plugin_onstatechange(color_ostream& out, state_change_event event) {
+//   switch (event) {
+//     case SC_VIEWSCREEN_CHANGED:
+//       reset_textures();
+//       // TexposManager::instance().ResetTexpos();
+//       break;
+//     default:
+//       break;
+//   }
+
+//   return CR_OK;
+// }
 
 static bool paint_tile(const Screen::Pen& pen, int x, int y, ScreenType screen_type = ScreenType::MAIN) {
   bool use_graphics = Screen::inGraphicsMode();
@@ -337,9 +445,14 @@ static void renderOverlay() {
   // Screen::paintString(Screen::Pen{}, 2, 54, std::format("tm texpos: {}", TexposManager::instance().SizeTexpos()));
   // Screen::paintString(Screen::Pen{}, 2, 55, std::format("tm surface: {}", TexposManager::instance().SizeSurface()));
 
-  for (auto& text : g_screen_text) {
-    for (auto i = 0; i < text.str.size(); i++) {
-      if (text.x + i >= text.clipx.second - 4) break; // why it's do not work?
+  if (!TTFManager::instance().isInit()) {
+    g_screen_text.clear();
+    return;
+  }
+
+  for (auto& text : g_screen_text) {              // iterate over all string for frame
+    for (auto i = 0; i < text.str.size(); i++) {  // handle every char in string
+      if (text.x + i >= text.clipx.second) break; // why it's do not work?
       auto pen = read_tile(text.x + i, text.y, text.screen_type);
 
       std::wstring ws{ text.str[i] };
@@ -387,4 +500,17 @@ static void renderOverlay() {
   g_screen_text.clear();
 }
 
-DFHACK_PLUGIN_LUA_FUNCTIONS{ DFHACK_LUA_FUNCTION(renderOverlay), DFHACK_LUA_END };
+static void loadFont(const std::string font) {
+  DEBUG(log).print("load font %s\n", font.c_str());
+  TTFManager::instance().LoadFont(font, 14, 2);
+  reset_textures();
+}
+
+static void disableFont() {
+  DEBUG(log).print("disable ttf\n");
+  TTFManager::instance().Quit();
+  reset_textures();
+}
+
+DFHACK_PLUGIN_LUA_FUNCTIONS{ DFHACK_LUA_FUNCTION(renderOverlay), DFHACK_LUA_FUNCTION(loadFont), DFHACK_LUA_FUNCTION(disableFont),
+                             DFHACK_LUA_END };

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "deps/phmap/phmap.h"
 #include "df/enabler.h"
 #include "modules/DFSDL.h"
 #include <SDL.h>
@@ -19,7 +18,7 @@ public:
     return singleton;
   }
 
-  // should by triggered on every game texpos reset
+  // should be triggered on every game texpos reset
   void ResetTexpos() {
     handle_to_texpos.clear();
   }
@@ -38,19 +37,17 @@ public:
   }
 
   TexposHandle getNewHandle(SDL_Surface* surface) {
+    if (!surface) return 0;
+    auto new_surface = CopySurface(surface);
     auto handle = reinterpret_cast<uintptr_t>(surface);
-    std::thread{
-      [&]() {
-        auto new_surface = CopySurface(surface);
-        handle_to_surface.emplace(handle, new_surface);
-      }
-    }.detach();
+    handle_to_surface.emplace(handle, new_surface);
     auto texpos = AddTexture(surface);
     handle_to_texpos.emplace(handle, texpos);
     return handle;
   }
 
   std::optional<Texpos> getTexposByHandle(TexposHandle handle) {
+    if (!handle) return std::nullopt;
     // search for existing texpos
     if (auto it = handle_to_texpos.find(handle); it != handle_to_texpos.end()) {
       return it->second;
@@ -91,6 +88,6 @@ private:
     return new_surface;
   }
 
-  phmap::parallel_flat_hash_map<TexposHandle, Texpos> handle_to_texpos;
-  phmap::parallel_flat_hash_map<TexposHandle, SDL_Surface*> handle_to_surface;
+  std::unordered_map<TexposHandle, Texpos> handle_to_texpos;
+  std::unordered_map<TexposHandle, SDL_Surface*> handle_to_surface;
 };

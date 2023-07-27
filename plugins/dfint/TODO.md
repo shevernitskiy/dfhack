@@ -9,7 +9,7 @@
 
 # Possible improvement
 
-- [x] abstract ttf manager, make a module (draft concept)
+- [ ] abstract ttf manager, make a module
 - [ ] add dynamic texture loading to Texture module
 - [ ] make an interface for the plugin
 - [ ] hot reload for font and csv
