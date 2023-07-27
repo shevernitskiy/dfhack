@@ -184,89 +184,12 @@ void reset_textures() {
   g_texpos_cache.Clear();
 }
 
-// reseting on Create New World
-struct tracking_stage_new_region : df::viewscreen_new_regionst {
-  typedef df::viewscreen_new_regionst interpose_base;
-
-  DEFINE_VMETHOD_INTERPOSE(void, logic, ()) {
-    if (this->m_raw_load_stage != this->raw_load_stage) {
-      this->m_raw_load_stage = this->raw_load_stage;
-      if (this->m_raw_load_stage == 1) reset_textures();
-    }
-    INTERPOSE_NEXT(logic)();
-  }
-
-private:
-  int m_raw_load_stage = -2;
-};
-IMPLEMENT_VMETHOD_INTERPOSE(tracking_stage_new_region, logic);
-
-// reseting on Starting new game in existing world
-struct tracking_stage_adopt_region : df::viewscreen_adopt_regionst {
-  typedef df::viewscreen_adopt_regionst interpose_base;
-
-  DEFINE_VMETHOD_INTERPOSE(void, logic, ()) {
-    if (this->m_progress != this->progress) {
-      DEBUG(log).print("adopt progress %i\n", this->progress);
-      this->m_progress = this->progress;
-      if (this->m_progress == 1) reset_textures();
-    }
-    INTERPOSE_NEXT(logic)();
-  }
-
-private:
-  int m_progress = -2;
-};
-IMPLEMENT_VMETHOD_INTERPOSE(tracking_stage_adopt_region, logic);
-
-// reseting on Load game
-struct tracking_stage_load_region : df::viewscreen_loadgamest {
-  typedef df::viewscreen_loadgamest interpose_base;
-
-  DEFINE_VMETHOD_INTERPOSE(void, logic, ()) {
-    if (this->m_progress != this->progress) {
-      DEBUG(log).print("load game progress %i\n", this->progress);
-      this->m_progress = this->progress;
-      if (this->m_progress == 1) reset_textures();
-    }
-    INTERPOSE_NEXT(logic)();
-  }
-
-private:
-  int m_progress = -2;
-};
-IMPLEMENT_VMETHOD_INTERPOSE(tracking_stage_load_region, logic);
-
-// reseting on new arena
-// struct tracking_stage_new_arena : df::viewscreen_new_arenast {
-//   typedef df::viewscreen_new_arenast interpose_base;
-
-//   DEFINE_VMETHOD_INTERPOSE(void, logic, ()) {
-//     INTERPOSE_NEXT(logic)();
-//     int progress = *(int*)(this + 0x8c);
-//     if (this->m_progress != progress) {
-//       DEBUG(log).print("arena progress %i\n", progress);
-//       this->m_progress = progress;
-//       if (this->m_progress == 1) reset_textures();
-//     }
-//     INTERPOSE_NEXT(logic)();
-//   }
-
-// private:
-//   int m_progress = -2;
-// };
-// IMPLEMENT_VMETHOD_INTERPOSE(tracking_stage_new_arena, logic);
-
 DFhackCExport command_result plugin_init(color_ostream& out, std::vector<PluginCommand>& commands) {
   DEBUG(log, out).print("initializing %s\n", plugin_name);
   Dictionary::instance().LoadCsv("./dfint_data/dfint_dictionary_ru_utf.csv");
   TTFManager::instance().LoadFont("terminus_bold.ttf", 14, 2);
   install_hooks();
-
-  INTERPOSE_HOOK(tracking_stage_new_region, logic).apply();
-  INTERPOSE_HOOK(tracking_stage_adopt_region, logic).apply();
-  INTERPOSE_HOOK(tracking_stage_load_region, logic).apply();
-  // INTERPOSE_HOOK(tracking_stage_new_arena, logic).apply();
+  TexposManager::RegisterResetCallback([&](void) { reset_textures(); });
 
   return CR_OK;
 }
@@ -275,26 +198,8 @@ DFhackCExport command_result plugin_shutdown(color_ostream& out) {
   DEBUG(log, out).print("shutting down %s\n", plugin_name);
   TTFManager::instance().Quit();
 
-  INTERPOSE_HOOK(tracking_stage_new_region, logic).remove();
-  INTERPOSE_HOOK(tracking_stage_adopt_region, logic).remove();
-  INTERPOSE_HOOK(tracking_stage_load_region, logic).remove();
-  // INTERPOSE_HOOK(tracking_stage_new_arena, logic).remove();
-
   return CR_OK;
 }
-
-// DFhackCExport command_result plugin_onstatechange(color_ostream& out, state_change_event event) {
-//   switch (event) {
-//     case SC_VIEWSCREEN_CHANGED:
-//       reset_textures();
-//       // TexposManager::instance().ResetTexpos();
-//       break;
-//     default:
-//       break;
-//   }
-
-//   return CR_OK;
-// }
 
 static bool paint_tile(const Screen::Pen& pen, int x, int y, ScreenType screen_type = ScreenType::MAIN) {
   bool use_graphics = Screen::inGraphicsMode();
@@ -474,7 +379,8 @@ static void renderOverlay() {
         texpos = cached_texpos.value().get();
       } else {
         auto texture = TTFManager::instance().GetTextureWS(std::wstring{ text.str[i] }, flag);
-        texpos = add_texture(texture);
+        // texpos = add_texture(texture);
+        texpos = TexposManager::AddTexture(texture);
         g_texpos_cache.Put(ws, texpos);
       }
 
