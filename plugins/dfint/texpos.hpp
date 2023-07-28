@@ -10,7 +10,7 @@
 #include "df/viewscreen_new_regionst.h"
 #include "modules/DFSDL.h"
 
-// #include <cstdint>
+#include <execution>
 #include <functional>
 #include <mutex>
 #include <optional>
@@ -36,9 +36,10 @@ public:
 
   TexposHandle getNewHandle(SDL_Surface* surface) {
     if (!surface) return 0;
-    auto new_surface = copy_surface(surface);
-    auto handle = reinterpret_cast<uintptr_t>(new_surface);
-    handle_to_surface.emplace(handle, new_surface);
+    // auto new_surface = copy_surface(surface);
+    surface->refcount++;
+    auto handle = reinterpret_cast<uintptr_t>(surface);
+    handle_to_surface.emplace(handle, surface);
     auto texpos = add_texture(surface);
     handle_to_texpos.emplace(handle, texpos);
     return handle;
@@ -52,8 +53,9 @@ public:
     }
     // if not, search for cached texture en register new one
     if (auto it = handle_to_surface.find(handle); it != handle_to_surface.end()) {
-      auto new_surface = copy_surface(it->second);
-      auto texpos = add_texture(new_surface);
+      // auto new_surface = copy_surface(it->second);
+      it->second->refcount++;
+      auto texpos = add_texture(it->second);
       handle_to_texpos.emplace(handle, texpos);
       return texpos;
     }
@@ -135,7 +137,9 @@ private:
 
   // should not be triggered in normal scenario
   void reset_surface() {
-    handle_to_surface.clear();
+    std::for_each(std::execution::par, handle_to_surface.begin(), handle_to_surface.end(),
+                  [](auto& entry) { DFHack::DFSDL::DFSDL_FreeSurface(entry.second); });
+                      handle_to_surface.clear();
   }
 
   void install_reset_point() {
