@@ -13,6 +13,7 @@
 // #include <cstdint>
 #include <execution>
 #include <functional>
+#include <mutex>
 // #include <optional>
 // #include <unordered_map>
 // #include <unordered_set>
@@ -138,6 +139,7 @@ private:
 
   // Use this one if you have only one texture
   Texpos m_AddTexture(SDL_Surface* surface, std::function<void()> callback) {
+    std::lock_guard<std::mutex> lg_add_texture(add_mutex);
     m_RegisterResetCallback(callback);
     auto texpos = df::global::enabler->textures.raws.size();
     df::global::enabler->textures.raws.push_back(surface);
@@ -146,6 +148,7 @@ private:
 
   // Add textuter and get texpos
   Texpos m_AddTexture(SDL_Surface* surface) {
+    std::lock_guard<std::mutex> lg_add_texture(add_mutex);
     auto texpos = df::global::enabler->textures.raws.size();
     df::global::enabler->textures.raws.push_back(surface);
     return texpos;
@@ -191,6 +194,7 @@ private:
   // std::unordered_map<TexposHandle, SDL_Surface*> handle_to_surface;
 
   std::vector<std::function<void()>> callbacks;
+  std::mutex add_mutex;
 };
 
 IMPLEMENT_VMETHOD_INTERPOSE(TexposManager::tracking_stage_new_region, logic);
