@@ -46,7 +46,7 @@ struct TextString {
 static std::vector<TextString> g_screen_text{};
 static LRUCache<std::wstring, long> g_texpos_cache{ TEXTURE_CACHE_SIZE };
 
-// static LRUCache<std::wstring, TexposManager::TexposHandle> g_texpos_hanlde_cache{ TEXTURE_CACHE_SIZE };
+static std::unordered_map<std::wstring, TexposManager::TexposHandle> g_texpos_handle_cache;
 
 // ============== TEMPORARY HOOKING PART ==============
 
@@ -189,8 +189,6 @@ DFhackCExport command_result plugin_init(color_ostream& out, std::vector<PluginC
   Dictionary::instance().LoadCsv("./dfint_data/dfint_dictionary_ru_utf.csv");
   TTFManager::instance().LoadFont("terminus_bold.ttf", 14, 2);
   install_hooks();
-  TexposManager::RegisterResetCallback([&](void) { reset_textures(); });
-
   return CR_OK;
 }
 
@@ -345,7 +343,7 @@ long add_texture(SDL_Surface* texture) {
 static void renderOverlay() {
   Screen::paintString(Screen::Pen{}, 2, 50, std::format("total strings: {}", g_screen_text.size()));
   Screen::paintString(Screen::Pen{}, 2, 51, std::format("dict: {}", Dictionary::instance().Size()));
-  Screen::paintString(Screen::Pen{}, 2, 52, std::format("texpos cache: {}", g_texpos_cache.Size()));
+  Screen::paintString(Screen::Pen{}, 2, 52, std::format("texpos cache: {}", TexposManager::instance().sizeTexpos()));
   Screen::paintString(Screen::Pen{}, 2, 53, std::format("texpos size: {}", enabler->textures.raws.size()));
   // Screen::paintString(Screen::Pen{}, 2, 54, std::format("tm texpos: {}", TexposManager::instance().SizeTexpos()));
   // Screen::paintString(Screen::Pen{}, 2, 55, std::format("tm surface: {}", TexposManager::instance().SizeSurface()));
@@ -374,26 +372,26 @@ static void renderOverlay() {
       }
 
       // use cached texpos or get a new one long texpos = 0;
-      long texpos = 0;
-      if (auto cached_texpos = g_texpos_cache.Get(ws); cached_texpos) {
-        texpos = cached_texpos.value().get();
-      } else {
-        auto texture = TTFManager::instance().GetTextureWS(std::wstring{ text.str[i] }, flag);
-        // texpos = add_texture(texture);
-        texpos = TexposManager::AddTexture(texture);
-        g_texpos_cache.Put(ws, texpos);
-      }
-
-      // auto& tm = TexposManager::instance();
       // long texpos = 0;
-      // if (auto cached_texpos_handle = g_texpos_hanlde_cache.Get(ws); cached_texpos_handle) {
-      //   texpos = tm.getTexposByHandle(cached_texpos_handle.value()).value(); // handle NULLOPT!
+      // if (auto cached_texpos = g_texpos_cache.Get(ws); cached_texpos) {
+      //   texpos = cached_texpos.value().get();
       // } else {
       //   auto texture = TTFManager::instance().GetTextureWS(std::wstring{ text.str[i] }, flag);
-      //   auto handle = tm.getNewHandle(texture);
-      //   g_texpos_hanlde_cache.Put(ws, handle);
-      //   texpos = tm.getTexposByHandle(cached_texpos_handle.value()).value();
+      //   // texpos = add_texture(texture);
+      //   texpos = TexposManager::AddTexture(texture);
+      //   g_texpos_cache.Put(ws, texpos);
       // }
+
+      auto& tm = TexposManager::instance();
+      long texpos = 0;
+      if (auto it = g_texpos_handle_cache.find(ws); it != g_texpos_handle_cache.end()) {
+        texpos = tm.getTexposByHandle(it->second).value(); // handle NULLOPT!
+      } else {
+        auto texture = TTFManager::instance().GetTextureWS(std::wstring{ text.str[i] }, flag);
+        auto handle = tm.getNewHandle(texture);
+        g_texpos_handle_cache.emplace(ws, handle);
+        texpos = tm.getTexposByHandle(handle).value();
+      }
 
       pen.ch = 0;                                       // clear default char on the tile
       pen.tile_mode = Screen::Pen::TileMode::CharColor; // use colors from original char
