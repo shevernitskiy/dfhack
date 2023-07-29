@@ -388,7 +388,7 @@ static void renderOverlay() {
         texpos = tm.getTexposByHandle(it->second).value(); // handle NULLOPT!
       } else {
         auto texture = TTFManager::instance().GetTextureWS(std::wstring{ text.str[i] }, flag);
-        auto handle = tm.getNewHandle(texture);
+        auto handle = tm.loadTexture(texture);
         g_texpos_handle_cache.emplace(ws, handle);
         texpos = tm.getTexposByHandle(handle).value();
       }

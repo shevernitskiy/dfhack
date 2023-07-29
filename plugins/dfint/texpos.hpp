@@ -18,8 +18,8 @@
 
 class TexposManager {
 public:
-  typedef typename uintptr_t TexposHandle;
-  typedef typename long Texpos;
+  using TexposHandle = uintptr_t;
+  using Texpos = long;
 
   [[nodiscard]] static TexposManager& instance() {
     static TexposManager singleton;
@@ -34,12 +34,12 @@ public:
     return handle_to_surface.size();
   }
 
-  TexposHandle getNewHandle(SDL_Surface* surface) {
+  TexposHandle loadTexture(SDL_Surface* surface) {
     if (!surface) return 0;
     // auto new_surface = copy_surface(surface);
-    surface->refcount++;
-    auto handle = reinterpret_cast<uintptr_t>(surface);
+    auto handle = reinterpret_cast<uintptr_t>(surface); // not the best way, but fast and cheap
     handle_to_surface.emplace(handle, surface);
+    surface->refcount++;
     auto texpos = add_texture(surface);
     handle_to_texpos.emplace(handle, texpos);
     return handle;
@@ -76,7 +76,7 @@ private:
     }
 
   private:
-    int m_raw_load_stage = -2;
+    int m_raw_load_stage = -2; // not valid state at the start
   };
 
   // reseting on Starting new game in existing world
@@ -84,15 +84,15 @@ private:
     typedef df::viewscreen_adopt_regionst interpose_base;
 
     DEFINE_VMETHOD_INTERPOSE(void, logic, ()) {
-      if (this->m_progress != this->progress) {
-        this->m_progress = this->progress;
-        if (this->m_progress == 1) TexposManager::instance().reset_texpos();
+      if (this->m_cur_step != this->cur_step) {
+        this->m_cur_step = this->cur_step;
+        if (this->m_cur_step == df::viewscreen_adopt_regionst::T_cur_step::ProcessingRawData) TexposManager::instance().reset_texpos();
       }
       INTERPOSE_NEXT(logic)();
     }
 
   private:
-    int m_progress = -2;
+    int m_cur_step = -2; // not valid state at the start
   };
 
   // reseting on Load game
@@ -100,17 +100,18 @@ private:
     typedef df::viewscreen_loadgamest interpose_base;
 
     DEFINE_VMETHOD_INTERPOSE(void, logic, ()) {
-      if (this->m_progress != this->progress) {
-        this->m_progress = this->progress;
-        if (this->m_progress == 1) TexposManager::instance().reset_texpos();
+      if (this->m_cur_step != this->cur_step) {
+        this->m_cur_step = this->cur_step;
+        if (this->m_cur_step == df::viewscreen_loadgamest::T_cur_step::ProcessingRawData) TexposManager::instance().reset_texpos();
       }
       INTERPOSE_NEXT(logic)();
     }
 
   private:
-    int m_progress = -2;
+    int m_cur_step = -2; // not valid state at the start
   };
 
+  // Unused but may be useful as standalone
   SDL_Surface* copy_surface(SDL_Surface* surface) {
     // should handle alpha?
     SDL_Surface* new_surface =
@@ -139,7 +140,7 @@ private:
   void reset_surface() {
     std::for_each(std::execution::par, handle_to_surface.begin(), handle_to_surface.end(),
                   [](auto& entry) { DFHack::DFSDL::DFSDL_FreeSurface(entry.second); });
-                      handle_to_surface.clear();
+    handle_to_surface.clear();
   }
 
   void install_reset_point() {
@@ -169,7 +170,6 @@ private:
 
   std::unordered_map<TexposHandle, Texpos> handle_to_texpos;
   std::unordered_map<TexposHandle, SDL_Surface*> handle_to_surface;
-
   std::mutex add_mutex;
 };
 
