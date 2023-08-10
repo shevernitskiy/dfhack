@@ -19,12 +19,15 @@ namespace DFHack {
 namespace Textures {
 
 /**
- * Load texture and get handle. This handle used for getting valid texpos.
+ * Load texture and get handle.
+ * Keep it to obtain valid texpos.
  */
 DFHACK_EXPORT TexposHandle loadTexture(SDL_Surface* surface);
 
 /**
  * Get texpos by handle.
+ * Always use this function, if you need to get valid texpos for your texure.
+ * Texpos can change on game textures reset, but handle will be the same.
  */
 DFHACK_EXPORT std::optional<long> getTexposByHandle(TexposHandle handle);
 

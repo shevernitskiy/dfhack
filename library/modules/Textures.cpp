@@ -8,6 +8,7 @@
 #include "modules/Textures.h"
 
 #include "Debug.h"
+#include "PluginManager.h"
 #include "VTableInterpose.h"
 
 #include "df/enabler.h"
@@ -199,7 +200,7 @@ static void uninstall_reset_point() {
 const uint32_t TILE_WIDTH_PX = 8;
 const uint32_t TILE_HEIGHT_PX = 12;
 
-static size_t load_img_textures(color_ostream & out, const char * fname,
+static size_t load_textures_from_image(color_ostream & out, const char * fname,
                             long *texpos_start,
                             int tile_w = TILE_WIDTH_PX,
                             int tile_h = TILE_HEIGHT_PX) {
@@ -263,32 +264,32 @@ void Textures::init(color_ostream &out) {
 
     bool is_pre_world = num_textures == textures.init_texture_size;
 
-    g_num_dfhack_textures = load_img_textures(out, "hack/data/art/dfhack.png",
-                                          &g_dfhack_logo_texpos_start);
-    g_num_dfhack_textures += load_img_textures(out, "hack/data/art/green-pin.png",
-                                          &g_green_pin_texpos_start);
-    g_num_dfhack_textures += load_img_textures(out, "hack/data/art/red-pin.png",
-                                          &g_red_pin_texpos_start);
-    g_num_dfhack_textures += load_img_textures(out, "hack/data/art/icons.png",
-                                          &g_icons_texpos_start);
-    g_num_dfhack_textures += load_img_textures(out, "hack/data/art/on-off.png",
-                                          &g_on_off_texpos_start);
-    g_num_dfhack_textures += load_img_textures(out, "hack/data/art/pathable.png",
-                                          &g_pathable_texpos_start, 32, 32);
-    g_num_dfhack_textures += load_img_textures(out, "hack/data/art/unsuspend.png",
-                                          &g_unsuspend_texpos_start, 32, 32);
-    g_num_dfhack_textures += load_img_textures(out, "hack/data/art/control-panel.png",
-                                          &g_control_panel_texpos_start);
-    g_num_dfhack_textures += load_img_textures(out, "hack/data/art/border-thin.png",
-                                          &g_thin_borders_texpos_start);
-    g_num_dfhack_textures += load_img_textures(out, "hack/data/art/border-medium.png",
-                                          &g_medium_borders_texpos_start);
-    g_num_dfhack_textures += load_img_textures(out, "hack/data/art/border-bold.png",
-                                          &g_bold_borders_texpos_start);
-    g_num_dfhack_textures += load_img_textures(out, "hack/data/art/border-panel.png",
-                                          &g_panel_borders_texpos_start);
-    g_num_dfhack_textures += load_img_textures(out, "hack/data/art/border-window.png",
-                                          &g_window_borders_texpos_start);
+    g_num_dfhack_textures = load_textures_from_image(out, "hack/data/art/dfhack.png",
+                                                    &g_dfhack_logo_texpos_start);
+    g_num_dfhack_textures += load_textures_from_image(out, "hack/data/art/green-pin.png",
+                                                    &g_green_pin_texpos_start);
+    g_num_dfhack_textures += load_textures_from_image(out, "hack/data/art/red-pin.png",
+                                                    &g_red_pin_texpos_start);
+    g_num_dfhack_textures += load_textures_from_image(out, "hack/data/art/icons.png",
+                                                    &g_icons_texpos_start);
+    g_num_dfhack_textures += load_textures_from_image(out, "hack/data/art/on-off.png",
+                                                    &g_on_off_texpos_start);
+    g_num_dfhack_textures += load_textures_from_image(out, "hack/data/art/pathable.png",
+                                                    &g_pathable_texpos_start, 32, 32);
+    g_num_dfhack_textures += load_textures_from_image(out, "hack/data/art/unsuspend.png",
+                                                    &g_unsuspend_texpos_start, 32, 32);
+    g_num_dfhack_textures += load_textures_from_image(out, "hack/data/art/control-panel.png",
+                                                    &g_control_panel_texpos_start);
+    g_num_dfhack_textures += load_textures_from_image(out, "hack/data/art/border-thin.png",
+                                                    &g_thin_borders_texpos_start);
+    g_num_dfhack_textures += load_textures_from_image(out, "hack/data/art/border-medium.png",
+                                                    &g_medium_borders_texpos_start);
+    g_num_dfhack_textures += load_textures_from_image(out, "hack/data/art/border-bold.png",
+                                                    &g_bold_borders_texpos_start);
+    g_num_dfhack_textures += load_textures_from_image(out, "hack/data/art/border-panel.png",
+                                                    &g_panel_borders_texpos_start);
+    g_num_dfhack_textures += load_textures_from_image(out, "hack/data/art/border-window.png",
+                                                    &g_window_borders_texpos_start);
 
     DEBUG(textures,out).print("loaded %ld textures\n", g_num_dfhack_textures);
 
