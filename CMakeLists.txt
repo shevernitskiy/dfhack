@@ -30,6 +30,7 @@ else(CMAKE_CONFIGURATION_TYPES)
 endif(CMAKE_CONFIGURATION_TYPES)
 
 option(BUILD_DOCS "Choose whether to build the documentation (requires python and Sphinx)." OFF)
+option(BUILD_DOCS_NO_HTML "Don't build the HTML docs, only the in-game docs." OFF)
 option(REMOVE_SYMBOLS_FROM_DF_STUBS "Remove debug symbols from DF stubs. (Reduces libdfhack size to about half but removes a few useful symbols)" ON)
 
 macro(CHECK_GCC compiler_path)
@@ -210,17 +211,15 @@ set(DFHACK_BINARY_DESTINATION .)
 set(DFHACK_PLUGIN_DESTINATION ${DFHACK_DATA_DESTINATION}/plugins)
 # dfhack lua files go here:
 set(DFHACK_LUA_DESTINATION ${DFHACK_DATA_DESTINATION}/lua)
-# the windows .lib file goes here:
-set(DFHACK_DEVLIB_DESTINATION ${DFHACK_DATA_DESTINATION})
 
 # user documentation goes here:
 set(DFHACK_USERDOC_DESTINATION ${DFHACK_DATA_DESTINATION})
-# developer documentation goes here:
-set(DFHACK_DEVDOC_DESTINATION ${DFHACK_DATA_DESTINATION})
 
 # some options for the user/developer to play with
 option(BUILD_LIBRARY "Build the DFHack library." ON)
 option(BUILD_PLUGINS "Build the DFHack plugins." ON)
+option(INSTALL_SCRIPTS "Install DFHack scripts." ON)
+option(INSTALL_DATA_FILES "Install DFHack platform independent files." ON)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
 if(UNIX)
@@ -291,20 +290,22 @@ endif()
 find_package(ZLIB REQUIRED)
 include_directories(${ZLIB_INCLUDE_DIRS})
 
-# Download SDL release and extract into depends in the build dir
-# all we need are the header files (including generated headers), so the same release package
-# will work for all platforms
-# (the above statement is untested for OSX)
-set(SDL_VERSION 2.26.2)
-set(SDL_ZIP_MD5 574daf26d48de753d0b1e19823c9d8bb)
-set(SDL_ZIP_FILE SDL2-devel-${SDL_VERSION}-VC.zip)
-set(SDL_ZIP_PATH ${dfhack_SOURCE_DIR}/depends/SDL2/)
-download_file("https://github.com/libsdl-org/SDL/releases/download/release-${SDL_VERSION}/${SDL_ZIP_FILE}"
-    ${SDL_ZIP_PATH}${SDL_ZIP_FILE}
-    ${SDL_ZIP_MD5})
-file(ARCHIVE_EXTRACT INPUT ${SDL_ZIP_PATH}${SDL_ZIP_FILE}
-    DESTINATION ${SDL_ZIP_PATH})
-include_directories(${SDL_ZIP_PATH}/SDL2-${SDL_VERSION}/include)
+if(BUILD_LIBRARY)
+    # Download SDL release and extract into depends in the build dir
+    # all we need are the header files (including generated headers), so the same release package
+    # will work for all platforms
+    # (the above statement is untested for OSX)
+    set(SDL_VERSION 2.26.2)
+    set(SDL_ZIP_MD5 574daf26d48de753d0b1e19823c9d8bb)
+    set(SDL_ZIP_FILE SDL2-devel-${SDL_VERSION}-VC.zip)
+    set(SDL_ZIP_PATH ${dfhack_SOURCE_DIR}/depends/SDL2/)
+    download_file("https://github.com/libsdl-org/SDL/releases/download/release-${SDL_VERSION}/${SDL_ZIP_FILE}"
+        ${SDL_ZIP_PATH}${SDL_ZIP_FILE}
+        ${SDL_ZIP_MD5})
+    file(ARCHIVE_EXTRACT INPUT ${SDL_ZIP_PATH}${SDL_ZIP_FILE}
+        DESTINATION ${SDL_ZIP_PATH})
+    include_directories(${SDL_ZIP_PATH}/SDL2-${SDL_VERSION}/include)
+endif()
 
 if(APPLE)
     # libstdc++ (GCC 4.8.5 for OS X 10.6)
@@ -387,11 +388,14 @@ include_directories(depends/lodepng)
 include_directories(depends/tthread)
 include_directories(depends/clsocket/src)
 include_directories(depends/xlsxio/include)
-add_subdirectory(depends)
+
+if(BUILD_LIBRARY)
+    add_subdirectory(depends)
+endif()
 
 # Testing with CTest
 macro(dfhack_test name files)
-if(UNIX AND NOT APPLE) # remove this once our MSVC build env has been updated
+if(BUILD_LIBRARY AND UNIX AND NOT APPLE) # remove this once our MSVC build env has been updated
     add_executable(${name} ${files})
     target_include_directories(${name} PUBLIC depends/googletest/googletest/include)
     target_link_libraries(${name} dfhack gtest)
@@ -406,22 +410,25 @@ if(NOT GIT_FOUND)
 endif()
 
 # build the lib itself
+add_subdirectory(library)
 if(BUILD_LIBRARY)
-    add_subdirectory(library)
-    install(FILES LICENSE.rst DESTINATION ${DFHACK_USERDOC_DESTINATION})
-    install(FILES docs/changelog-placeholder.txt DESTINATION ${DFHACK_USERDOC_DESTINATION} RENAME changelog.txt)
+    file(WRITE ${CMAKE_BINARY_DIR}/dfhack_setarch.txt ${DFHACK_SETARCH})
+    install(FILES ${CMAKE_BINARY_DIR}/dfhack_setarch.txt DESTINATION ${DFHACK_DATA_DESTINATION})
 endif()
-
-file(WRITE "${CMAKE_BINARY_DIR}/dfhack_setarch.txt" ${DFHACK_SETARCH})
-install(FILES "${CMAKE_BINARY_DIR}/dfhack_setarch.txt" DESTINATION "${DFHACK_DATA_DESTINATION}")
 
 # build the plugins
-if(BUILD_PLUGINS)
-    add_subdirectory(plugins)
+add_subdirectory(plugins)
+
+if(INSTALL_DATA_FILES)
+    add_subdirectory(data)
+    install(FILES LICENSE.rst DESTINATION ${DFHACK_USERDOC_DESTINATION})
+    install(FILES docs/changelog-placeholder.txt DESTINATION ${DFHACK_USERDOC_DESTINATION} RENAME changelog.txt)
+    install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/depends/luacov/src/luacov/ DESTINATION ${DFHACK_DATA_DESTINATION}/lua/luacov)
 endif()
 
-add_subdirectory(data)
-add_subdirectory(scripts)
+if(INSTALL_SCRIPTS)
+    add_subdirectory(scripts)
+endif()
 
 if(BUILD_DOCS)
     find_package(Python3)
@@ -462,7 +469,14 @@ if(BUILD_DOCS)
         "${CMAKE_CURRENT_SOURCE_DIR}/conf.py"
     )
 
-    set(SPHINX_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/docs/html/.buildinfo")
+    if(BUILD_DOCS_NO_HTML)
+        set(SPHINX_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/docs/text/index.txt")
+        set(SPHINX_BUILD_TARGETS text)
+    else()
+        set(SPHINX_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/docs/html/.buildinfo")
+        set(SPHINX_BUILD_TARGETS html text)
+    endif()
+
     set_property(
         DIRECTORY PROPERTY ADDITIONAL_CLEAN_FILES TRUE
         "${CMAKE_CURRENT_SOURCE_DIR}/docs/changelogs"
@@ -479,9 +493,10 @@ if(BUILD_DOCS)
         "${CMAKE_BINARY_DIR}/docs/text"
         "${CMAKE_BINARY_DIR}/docs/xml"
     )
+
     add_custom_command(OUTPUT ${SPHINX_OUTPUT}
         COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/docs/build.py"
-            html text --sphinx="${SPHINX_EXECUTABLE}" -- -q
+        ${SPHINX_BUILD_TARGETS} --sphinx="${SPHINX_EXECUTABLE}" -- -q -W
         DEPENDS ${SPHINX_DEPS}
         COMMENT "Building documentation with Sphinx"
     )
@@ -494,10 +509,12 @@ if(BUILD_DOCS)
     add_custom_command(TARGET dfhack_docs POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E touch ${SPHINX_OUTPUT})
 
-    install(DIRECTORY ${dfhack_SOURCE_DIR}/docs/html/
-        DESTINATION ${DFHACK_USERDOC_DESTINATION}/docs
-        FILES_MATCHING PATTERN "*"
-                       PATTERN html/_sources EXCLUDE)
+    if(NOT BUILD_DOCS_NO_HTML)
+        install(DIRECTORY ${dfhack_SOURCE_DIR}/docs/html/
+            DESTINATION ${DFHACK_USERDOC_DESTINATION}/docs
+            FILES_MATCHING PATTERN "*"
+                           PATTERN html/_sources EXCLUDE)
+    endif()
     install(DIRECTORY ${dfhack_SOURCE_DIR}/docs/text/
         DESTINATION ${DFHACK_USERDOC_DESTINATION}/docs)
     install(FILES docs/changelogs/news.rst docs/changelogs/news-dev.rst DESTINATION ${DFHACK_USERDOC_DESTINATION})
@@ -582,7 +599,7 @@ endif()
 set(DFHACK_BUILD_ARCH_PREV "${DFHACK_BUILD_ARCH}" CACHE STRING "Previous build architecture" FORCE)
 
 option(BUILD_SIZECHECK "Build the sizecheck library, for research" OFF)
-if(BUILD_SIZECHECK)
+if(BUILD_LIBRARY AND BUILD_SIZECHECK)
     add_subdirectory(depends/sizecheck)
     add_dependencies(dfhack sizecheck)
 endif()

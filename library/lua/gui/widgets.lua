@@ -6,7 +6,6 @@ local gui = require('gui')
 local guidm = require('gui.dwarfmode')
 local utils = require('utils')
 
-local dscreen = dfhack.screen
 local getval = utils.getval
 local to_pen = dfhack.pen.parse
 
@@ -223,9 +222,9 @@ local function Panel_begin_drag(self, drag_offset, resize_edge)
     self.prev_focus_owner = self.focus_group.cur
     self:setFocus(true)
     if self.resize_edge then
-        if self.on_resize_begin then self.on_resize_begin(success) end
+        self:onResizeBegin()
     else
-        if self.on_drag_begin then self.on_drag_begin(success) end
+        self:onDragBegin()
     end
 end
 
@@ -236,11 +235,12 @@ local function Panel_end_drag(self, frame, success)
     else
         self:setFocus(false)
     end
+    local resize_edge = self.resize_edge
     Panel_update_frame(self, frame, true)
-    if self.resize_edge then
-        if self.on_resize_end then self.on_resize_end(success) end
+    if resize_edge then
+        self:onResizeEnd(success, self.frame)
     else
-        if self.on_drag_end then self.on_drag_end(success) end
+        self:onDragEnd(success, self.frame)
     end
 end
 
@@ -492,6 +492,22 @@ function Panel:onRenderFrame(dc, rect)
             and df.global.enabler.mouse_lbut == 0 then
         Panel_end_drag(self, nil, true)
     end
+end
+
+function Panel:onDragBegin()
+    if self.on_drag_begin then self.on_drag_begin() end
+end
+
+function Panel:onDragEnd(success, new_frame)
+    if self.on_drag_end then self.on_drag_end(success, new_frame) end
+end
+
+function Panel:onResizeBegin()
+    if self.on_resize_begin then self.on_resize_begin() end
+end
+
+function Panel:onResizeEnd(success, new_frame)
+    if self.on_resize_end then self.on_resize_end(success, new_frame) end
 end
 
 ------------
@@ -992,7 +1008,7 @@ function Scrollbar:onInput(keys)
         return false
     end
 
-    if self.parent_view:getMousePos() then
+    if self.parent_view and self.parent_view:getMousePos() then
         if keys.CONTEXT_SCROLL_UP then
             self.on_scroll('up_small')
             return true
@@ -1489,13 +1505,25 @@ function HotkeyLabel:onInput(keys)
     end
 end
 
+-----------------
+-- BannerPanel --
+-----------------
+
+BannerPanel = defclass(BannerPanel, Panel)
+
+function BannerPanel:onRenderBody(dc)
+    dc:pen(COLOR_RED)
+    for y=0,self.frame_rect.height-1 do
+        dc:seek(0, y):char('[')
+        dc:seek(self.frame_rect.width-1):char(']')
+    end
+end
+
 ----------------
 -- TextButton --
 ----------------
 
-TextButton = defclass(TextButton, Panel)
-
-local BUTTON_PEN = dfhack.pen.parse{fg=COLOR_YELLOW, bg=COLOR_RED}
+TextButton = defclass(TextButton, BannerPanel)
 
 function TextButton:init(info)
     self.label = HotkeyLabel{
@@ -1516,19 +1544,7 @@ function TextButton:init(info)
         scroll_keys=info.scroll_keys,
     }
 
-    self:addviews{
-        Label{
-            frame={t=0, l=0, w=1},
-            text=string.char(221),  -- half-width stripe on left
-            text_pen=BUTTON_PEN,
-        },
-        self.label,
-        Label{
-            frame={t=0, r=0, w=1},
-            text=string.char(222),  -- half-width stripe on right
-            text_pen=BUTTON_PEN,
-        }
-    }
+    self:addviews{self.label}
 end
 
 function TextButton:setLabel(label)

@@ -22,6 +22,27 @@ changelog.txt uses a syntax similar to RST, with a few special sequences:
   spans multiple lines. Three ``]`` characters indicate the end of such a block.
 - ``!`` immediately before a phrase set up to be replaced (see gen_changelog.py) stops that occurrence from being replaced.
 
+Template for new versions:
+
+# Future
+
+## New Features
+
+## Fixes
+
+## Misc Improvements
+
+## Documentation
+
+## API
+- `RemoteFortressReader`: add a ``force_reload`` option to the GetBlockList RPC API to return blocks regardless of whether they have changed since the last request
+
+## Internals
+
+## Lua
+
+## Removed
+
 ===end
 ]]]
 
@@ -33,19 +54,27 @@ changelog.txt uses a syntax similar to RST, with a few special sequences:
 
 # Future
 
-## New Plugins
+## New Features
 
 ## Fixes
+- Core: properly reload scripts in mods when a world is unloaded and immediately loaded again
 
 ## Misc Improvements
+- Surround DFHack-specific UI elements with square brackets instead of red-yellow blocks for better readability
+- `hotkeys`: don't display DFHack logo in legends mode since it covers up important interface elements. the Ctrl-Shift-C hotkey to bring up the menu and the mouseover hotspot still function, though.
 
 ## Documentation
 
 ## API
+- ``Items::getValue()``: remove ``caravan_buying`` parameter since the identity of the selling party doesn't actually affect the item value
 
 ## Internals
 
 ## Lua
+- ``new()``: improved error handling so that certain errors that were previously uncatchable (creating objects with members with unknown vtables) are now catchable with ``pcall()``
+- ``dfhack.items.getValue()``: remove ``caravan_buying`` param as per C++ API change
+- ``widgets.BannerPanel``: panel with distinctive border for marking DFHack UI elements on otherwise vanilla screens
+- ``widgets.Panel``: new functions to override instead of setting corresponding properties (useful when subclassing instead of just setting attributes): ``onDragBegin``, ``onDragEnd``, ``onResizeBegin``, ``onResizeEnd``
 
 ## Removed
 

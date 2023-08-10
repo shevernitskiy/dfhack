@@ -1773,15 +1773,12 @@ Items module
 
   Calculates the base value for an item of the specified type and material.
 
-* ``dfhack.items.getValue(item[, caravan_state, caravan_buying])``
+* ``dfhack.items.getValue(item[, caravan_state])``
 
   Calculates the value of an item. If a ``df.caravan_state`` object is given
   (from ``df.global.plotinfo.caravans`` or
   ``df.global.main_interface.trade.mer``), then the value is modified by civ
-  properties and any trade agreements that might be in effect. In this case,
-  specify ``caravan_buying`` as ``true`` to get the price the caravan will pay
-  for the item and ``false`` to get the price that the caravan will sell the
-  item for.
+  properties and any trade agreements that might be in effect.
 
 * ``dfhack.items.isRequestedTradeGood(item[, caravan_state])``
 
@@ -4562,7 +4559,7 @@ Has attributes:
 * ``drag_anchors = {}`` (default: ``{title=true, frame=false/true, body=true}``)
 * ``drag_bound = 'frame' or 'body'`` (default: ``'frame'``)
 * ``on_drag_begin = function()`` (default: ``nil``)
-* ``on_drag_end = function(bool)`` (default: ``nil``)
+* ``on_drag_end = function(success, new_frame)`` (default: ``nil``)
 
   If ``draggable`` is set to ``true``, then the above attributes come into play
   when the panel is dragged around the screen, either with the mouse or the
@@ -4576,13 +4573,15 @@ Has attributes:
   otherwise. Dragging can be canceled by right clicking while dragging with the
   mouse, hitting :kbd:`Esc` (while dragging with the mouse or keyboard), or by
   calling ``Panel:setKeyboaredDragEnabled(false)`` (while dragging with the
-  keyboard).
+  keyboard). If it is more convenient to do so, you can choose to override the
+  ``panel:onDragBegin`` and/or the ``panel:onDragEnd`` methods instead of
+  setting the ``on_drag_begin`` and/or ``on_drag_end`` attributes.
 
 * ``resizable = bool`` (default: ``false``)
 * ``resize_anchors = {}`` (default: ``{t=false, l=true, r=true, b=true}``
 * ``resize_min = {}`` (default: w and h from the ``frame``, or ``{w=5, h=5}``)
 * ``on_resize_begin = function()`` (default: ``nil``)
-* ``on_resize_end = function(bool)`` (default: ``nil``)
+* ``on_resize_end = function(success, new_frame)`` (default: ``nil``)
 
   If ``resizable`` is set to ``true``, then the player can click the mouse on
   any edge specified in ``resize_anchors`` and drag the border to resize the
@@ -4596,6 +4595,9 @@ Has attributes:
   Dragging can be canceled by right clicking while resizing with the mouse,
   hitting :kbd:`Esc` (while resizing with the mouse or keyboard), or by calling
   ``Panel:setKeyboardResizeEnabled(false)`` (while resizing with the keyboard).
+  If it is more convenient to do so, you can choose to override the
+  ``panel:onResizeBegin`` and/or the ``panel:onResizeEnd`` methods instead of
+  setting the ``on_resize_begin`` and/or ``on_resize_end`` attributes.
 
 * ``autoarrange_subviews = bool`` (default: ``false``)
 * ``autoarrange_gap = int`` (default: ``0``)
@@ -4639,6 +4641,15 @@ Has functions:
   be chosen. Shift-cursor keys move by larger amounts. Hit :kbd:`Enter` to
   commit the new window size or :kbd:`Esc` to cancel. If resizing is canceled,
   then the window size from before the resize operation is restored.
+
+* ``panel:onDragBegin()``
+* ``panel:onDragEnd(success, new_frame)``
+* ``panel:onResizeBegin()``
+* ``panel:onResizeEnd(success, new_frame)``
+
+The default implementations of these methods call the associated attribute (if
+set). You can override them in a subclass if that is more convenient than
+setting the attributes.
 
 Double clicking:
 
@@ -5080,13 +5091,21 @@ This is a specialized subclass of CycleHotkeyLabel that has two options:
 ``On`` (with a value of ``true``) and ``Off`` (with a value of ``false``). The
 ``On`` option is rendered in green.
 
+BannerPanel class
+-----------------
+
+This is a Panel subclass that prints a distinctive banner along the far left
+and right columns of the widget frame. Note that this is not a "proper" frame
+since it doesn't have top or bottom borders. Subviews of this panel should
+inset their frames one tile from the left and right edges.
+
 TextButton class
 ----------------
 
-This is a Panel subclass that wraps a HotkeyLabel with some decorators on the
-sides to make it look more like a button, suitable for both graphics and ASCII
-mdoes. All HotkeyLabel parameters passed to the constructor are passed through
-to the wrapped HotkeyLabel.
+This is a BannerPanel subclass that wraps a HotkeyLabel with some decorators on
+the sides to make it look more like a button, suitable for both graphics and
+ASCII modes. All HotkeyLabel parameters passed to the constructor are passed
+through to the wrapped HotkeyLabel.
 
 List class
 ----------

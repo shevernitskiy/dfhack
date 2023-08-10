@@ -25,12 +25,18 @@ distribution.
 #pragma once
 
 #include <deque>
-#include <string>
-#include <sstream>
-#include <vector>
 #include <map>
+#include <sstream>
+#include <string>
+#include <vector>
+#include <future>
 
 #include "DataDefs.h"
+
+namespace std {
+    class condition_variable;
+    class mutex;
+};
 
 /*
  * Definitions of DFHack namespace structs used by generated headers.
@@ -541,6 +547,15 @@ namespace df
 #define INTEGER_IDENTITY_TRAITS(type) NUMBER_IDENTITY_TRAITS(integer, type)
 #define FLOAT_IDENTITY_TRAITS(type) NUMBER_IDENTITY_TRAITS(float, type)
 
+// the space after the use of "type" in OPAQUE_IDENTITY_TRAITS is _required_
+// without it the macro generates a syntax error when type is a template specification
+
+#define OPAQUE_IDENTITY_TRAITS(type) \
+    template<> struct DFHACK_EXPORT identity_traits<type > { \
+        static opaque_identity identity; \
+        static opaque_identity *get() { return &identity; } \
+    };
+
     INTEGER_IDENTITY_TRAITS(char);
     INTEGER_IDENTITY_TRAITS(signed char);
     INTEGER_IDENTITY_TRAITS(unsigned char);
@@ -554,6 +569,10 @@ namespace df
     INTEGER_IDENTITY_TRAITS(unsigned long long);
     FLOAT_IDENTITY_TRAITS(float);
     FLOAT_IDENTITY_TRAITS(double);
+    OPAQUE_IDENTITY_TRAITS(std::condition_variable);
+    OPAQUE_IDENTITY_TRAITS(std::fstream);
+    OPAQUE_IDENTITY_TRAITS(std::mutex);
+    OPAQUE_IDENTITY_TRAITS(std::future<void>);
 
     template<> struct DFHACK_EXPORT identity_traits<bool> {
         static bool_identity identity;
@@ -563,11 +582,6 @@ namespace df
     template<> struct DFHACK_EXPORT identity_traits<std::string> {
         static stl_string_identity identity;
         static stl_string_identity *get() { return &identity; }
-    };
-
-    template<> struct DFHACK_EXPORT identity_traits<std::fstream> {
-        static opaque_identity identity;
-        static opaque_identity *get() { return &identity; }
     };
 
     template<> struct DFHACK_EXPORT identity_traits<char*> {
@@ -598,6 +612,7 @@ namespace df
 #undef NUMBER_IDENTITY_TRAITS
 #undef INTEGER_IDENTITY_TRAITS
 #undef FLOAT_IDENTITY_TRAITS
+#undef OPAQUE_IDENTITY_TRAITS
 
     // Container declarations
 

@@ -121,6 +121,9 @@ static size_t load_textures(color_ostream & out, const char * fname,
 // unloaded.
 //
 void Textures::init(color_ostream &out) {
+    if (!enabler)
+        return;
+
     auto & textures = enabler->textures;
     long num_textures = textures.raws.size();
     if (num_textures <= g_dfhack_logo_texpos_start)
@@ -175,7 +178,7 @@ void Textures::cleanup() {
 
     auto & textures = enabler->textures;
     auto &raws = textures.raws;
-    size_t texpos_end = g_dfhack_logo_texpos_start + g_num_dfhack_textures;
+    size_t texpos_end = g_dfhack_logo_texpos_start + g_num_dfhack_textures - 1;
     for (size_t idx = g_dfhack_logo_texpos_start; idx <= texpos_end; ++idx) {
         DFSDL_FreeSurface((SDL_Surface *)raws[idx]);
         raws[idx] = NULL;
