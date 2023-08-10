@@ -1,22 +1,23 @@
-#include "Core.h"
+// #include "Core.h"
 #include "Debug.h"
 #include "LuaTools.h"
 #include "PluginManager.h"
-#include <VTableInterpose.h>
+// #include <VTableInterpose.h>
 
 #include "df/enabler.h"
 #include "df/graphic_viewportst.h"
-#include "df/init.h"
-#include "df/viewscreen_adopt_regionst.h"
+// #include "df/init.h"
+// #include "df/viewscreen_adopt_regionst.h"
 // #include "df/viewscreen_new_arenast.h"
-#include "df/viewscreen_loadgamest.h"
-#include "df/viewscreen_new_regionst.h"
-#include "df/viewscreen_titlest.h"
+// #include "df/viewscreen_loadgamest.h"
+// #include "df/viewscreen_new_regionst.h"
+// #include "df/viewscreen_titlest.h"
 #include "modules/Screen.h"
+#include "modules/Textures.h"
 
 #include "cache.hpp"
 #include "dictionary.hpp"
-#include "texpos.hpp"
+// #include "texpos.hpp"
 #include "ttf.hpp"
 #include "utils.hpp"
 
@@ -46,7 +47,8 @@ struct TextString {
 static std::vector<TextString> g_screen_text{};
 static LRUCache<std::wstring, long> g_texpos_cache{ TEXTURE_CACHE_SIZE };
 
-static std::unordered_map<std::wstring, TexposManager::TexposHandle> g_texpos_handle_cache;
+// static std::unordered_map<std::wstring, TexposManager::TexposHandle> g_texpos_handle_cache;
+static std::unordered_map<std::wstring, TexposHandle> g_texpos_handle_cache;
 
 // ============== TEMPORARY HOOKING PART ==============
 
@@ -340,12 +342,55 @@ long add_texture(SDL_Surface* texture) {
   return texpos;
 }
 
+void replace_tile(int32_t x, int32_t y, ScreenType screen_type, wchar_t symbol) {
+  auto pen = read_tile(x, y, screen_type);
+  std::wstring ws{ symbol };
+  auto flag = TTFManager::Viewbox::NORMAL;
+
+  if (pen.top_of_text && pen.bottom_of_text) {
+    // TODO: handle BOTH_HALF
+  } else if (pen.top_of_text) {
+    flag = TTFManager::Viewbox::UPPER_HALF;
+    ws += L"UPPER_HALF";
+  } else if (pen.bottom_of_text) {
+    flag = TTFManager::Viewbox::BOTTOM_HALF;
+    ws += L"BOTTOM_HALF";
+  }
+
+  // auto& tm = TexposManager::instance();
+  // long texpos = 0;
+  // if (auto it = g_texpos_handle_cache.find(ws); it != g_texpos_handle_cache.end()) {
+  //   texpos = tm.getTexposByHandle(it->second).value(); // handle NULLOPT!
+  // } else {
+  //   auto texture = TTFManager::instance().GetTextureWS(std::wstring{ symbol }, flag);
+  //   auto handle = tm.loadTexture(texture);
+  //   g_texpos_handle_cache.emplace(ws, handle);
+  //   texpos = tm.getTexposByHandle(handle).value();
+  // }
+
+  long texpos = 0;
+  if (auto it = g_texpos_handle_cache.find(ws); it != g_texpos_handle_cache.end()) {
+    texpos = Textures::getTexposByHandle(it->second).value(); // handle NULLOPT!
+  } else {
+    auto texture = TTFManager::instance().GetTextureWS(std::wstring{ symbol }, flag);
+    auto handle = Textures::loadTexture(texture);
+    g_texpos_handle_cache.emplace(ws, handle);
+    texpos = Textures::getTexposByHandle(handle).value();
+  }
+
+  pen.ch = 0;                                       // clear default char on the tile
+  pen.tile_mode = Screen::Pen::TileMode::CharColor; // use colors from original char
+  pen.tile = texpos;                                // our texture here
+  pen.keep_lower = true;                            // keep background
+
+  paint_tile(pen, x, y, screen_type);
+}
+
 static void renderOverlay() {
   Screen::paintString(Screen::Pen{}, 2, 50, std::format("total strings: {}", g_screen_text.size()));
   Screen::paintString(Screen::Pen{}, 2, 51, std::format("dict: {}", Dictionary::instance().Size()));
-  Screen::paintString(Screen::Pen{}, 2, 52, std::format("texpos cache: {}", TexposManager::instance().sizeTexpos()));
   Screen::paintString(Screen::Pen{}, 2, 53, std::format("texpos size: {}", enabler->textures.raws.size()));
-  // Screen::paintString(Screen::Pen{}, 2, 54, std::format("tm texpos: {}", TexposManager::instance().SizeTexpos()));
+  // Screen::paintString(Screen::Pen{}, 2, 54, std::format("tm texpos: {}", TexposManager::instance().sizeTexpos()));
   // Screen::paintString(Screen::Pen{}, 2, 55, std::format("tm surface: {}", TexposManager::instance().SizeSurface()));
 
   if (!TTFManager::instance().isInit()) {
@@ -356,49 +401,7 @@ static void renderOverlay() {
   for (auto& text : g_screen_text) {              // iterate over all string for frame
     for (auto i = 0; i < text.str.size(); i++) {  // handle every char in string
       if (text.x + i >= text.clipx.second) break; // why it's do not work?
-      auto pen = read_tile(text.x + i, text.y, text.screen_type);
-
-      std::wstring ws{ text.str[i] };
-      auto flag = TTFManager::Viewbox::NORMAL;
-
-      if (pen.top_of_text && pen.bottom_of_text) {
-        // TODO: handle BOTH_HALF
-      } else if (pen.top_of_text) {
-        flag = TTFManager::Viewbox::UPPER_HALF;
-        ws += L"UPPER_HALF";
-      } else if (pen.bottom_of_text) {
-        flag = TTFManager::Viewbox::BOTTOM_HALF;
-        ws += L"BOTTOM_HALF";
-      }
-
-      // use cached texpos or get a new one long texpos = 0;
-      // long texpos = 0;
-      // if (auto cached_texpos = g_texpos_cache.Get(ws); cached_texpos) {
-      //   texpos = cached_texpos.value().get();
-      // } else {
-      //   auto texture = TTFManager::instance().GetTextureWS(std::wstring{ text.str[i] }, flag);
-      //   // texpos = add_texture(texture);
-      //   texpos = TexposManager::AddTexture(texture);
-      //   g_texpos_cache.Put(ws, texpos);
-      // }
-
-      auto& tm = TexposManager::instance();
-      long texpos = 0;
-      if (auto it = g_texpos_handle_cache.find(ws); it != g_texpos_handle_cache.end()) {
-        texpos = tm.getTexposByHandle(it->second).value(); // handle NULLOPT!
-      } else {
-        auto texture = TTFManager::instance().GetTextureWS(std::wstring{ text.str[i] }, flag);
-        auto handle = tm.loadTexture(texture);
-        g_texpos_handle_cache.emplace(ws, handle);
-        texpos = tm.getTexposByHandle(handle).value();
-      }
-
-      pen.ch = 0;                                       // clear default char on the tile
-      pen.tile_mode = Screen::Pen::TileMode::CharColor; // use colors from original char
-      pen.tile = texpos;                                // our texture here
-      pen.keep_lower = true;                            // keep background
-
-      paint_tile(pen, text.x + i, text.y, text.screen_type);
+      replace_tile(text.x + i, text.y, text.screen_type, text.str[i]);
     }
   }
   g_screen_text.clear();
