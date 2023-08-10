@@ -8,15 +8,12 @@
 #include "modules/Textures.h"
 
 #include "Debug.h"
-#include "PluginManager.h"
 #include "VTableInterpose.h"
 
 #include "df/enabler.h"
 #include "df/viewscreen_adopt_regionst.h"
 #include "df/viewscreen_loadgamest.h"
 #include "df/viewscreen_new_regionst.h"
-
-#include <SDL_surface.h>
 
 using df::global::enabler;
 using namespace DFHack;
@@ -85,7 +82,7 @@ SDL_Surface * canonicalize_format(SDL_Surface *src) {
   return tgt;
 }
 
-// add textute and get texpos
+// add texture and get texpos
 static long add_texture(SDL_Surface* surface) {
     std::lock_guard<std::mutex> lg_add_texture(g_adding_mutex);
     auto texpos = enabler->textures.raws.size();

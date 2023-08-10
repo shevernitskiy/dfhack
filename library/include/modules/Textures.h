@@ -5,6 +5,8 @@
 #include "Export.h"
 #include "ColorText.h"
 
+#include <SDL_surface.h>
+
 using TexposHandle = uintptr_t;
 
 namespace DFHack {
@@ -19,12 +21,12 @@ namespace Textures {
 /**
  * Load texture and get handle. This handle used for getting valid texpos.
  */
-TexposHandle loadTexture(SDL_Surface* surface);
+DFHACK_EXPORT TexposHandle loadTexture(SDL_Surface* surface);
 
 /**
  * Get texpos by handle.
  */
-std::optional<long> getTexposByHandle(TexposHandle handle);
+DFHACK_EXPORT std::optional<long> getTexposByHandle(TexposHandle handle);
 
 /**
  * Call this on DFHack init and on every viewscreen change so we can reload
