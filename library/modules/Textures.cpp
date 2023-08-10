@@ -246,13 +246,13 @@ static size_t load_textures_from_image(color_ostream & out, const char * fname,
 // unloaded.
 //
 void Textures::init(color_ostream &out) {
-    if (!enabler)
-        return;
-
     if (!g_dynamic_loaded) {
         g_dynamic_loaded = true;
         install_reset_point();
     }
+
+    if (!enabler)
+        return;
 
     auto & textures = enabler->textures;
     long num_textures = textures.raws.size();
