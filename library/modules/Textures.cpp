@@ -14,6 +14,7 @@
 #include "df/viewscreen_adopt_regionst.h"
 #include "df/viewscreen_loadgamest.h"
 #include "df/viewscreen_new_regionst.h"
+#include "df/viewscreen_new_arenast.h"
 
 using df::global::enabler;
 using namespace DFHack;
@@ -96,7 +97,7 @@ TexposHandle Textures::loadTexture(SDL_Surface* surface) {
 
     auto handle = reinterpret_cast<uintptr_t>(surface); // not the best way? but cheap
     g_handle_to_surface.emplace(handle, surface);
-    surface->refcount++; // one more copy please - prevent destruct on next FreeSurface by game
+    surface->refcount++; // prevent destruct on next FreeSurface by game
     auto texpos = add_texture(surface);
     g_handle_to_texpos.emplace(handle, texpos);
     return handle;
@@ -110,7 +111,7 @@ std::optional<long> Textures::getTexposByHandle(TexposHandle handle) {
         return it->second;
 
     if (auto it = g_handle_to_surface.find(handle); it != g_handle_to_surface.end()) {
-      it->second->refcount++; // one more copy please - prevent destruct on next FreeSurface by game
+      it->second->refcount++; // prevent destruct on next FreeSurface by game
       auto texpos = add_texture(it->second);
       g_handle_to_texpos.emplace(handle, texpos);
       return texpos;
@@ -119,12 +120,10 @@ std::optional<long> Textures::getTexposByHandle(TexposHandle handle) {
     return std::nullopt;
 }
 
-// should be triggered on every game texpos reset
 static void reset_texpos() {
     g_handle_to_texpos.clear();
 }
 
-// should not be triggered in normal scenario
 static void reset_surface() {
     for (auto& entry : g_handle_to_surface) {
         DFSDL_FreeSurface(entry.second);
@@ -132,7 +131,7 @@ static void reset_surface() {
     g_handle_to_surface.clear();
 }
 
-// reset on New Game
+// reset point on New Game
 struct tracking_stage_new_region : df::viewscreen_new_regionst {
     typedef df::viewscreen_new_regionst interpose_base;
 
@@ -146,11 +145,11 @@ struct tracking_stage_new_region : df::viewscreen_new_regionst {
     }
 
   private:
-    int m_raw_load_stage = -2; // not valid state at the start
+    inline static int m_raw_load_stage = -2; // not valid state at the start
 };
 IMPLEMENT_VMETHOD_INTERPOSE(tracking_stage_new_region, logic);
 
-// reset on Starting new game in existing world
+// reset point on New Game in Existing World
 struct tracking_stage_adopt_region : df::viewscreen_adopt_regionst {
     typedef df::viewscreen_adopt_regionst interpose_base;
 
@@ -164,11 +163,11 @@ struct tracking_stage_adopt_region : df::viewscreen_adopt_regionst {
     }
 
   private:
-    int m_cur_step = -2; // not valid state at the start
+    inline static int m_cur_step = -2; // not valid state at the start
 };
 IMPLEMENT_VMETHOD_INTERPOSE(tracking_stage_adopt_region, logic);
 
-// reseting on Load Game
+// reset point on Load Game
 struct tracking_stage_load_region : df::viewscreen_loadgamest {
     typedef df::viewscreen_loadgamest interpose_base;
 
@@ -182,20 +181,41 @@ struct tracking_stage_load_region : df::viewscreen_loadgamest {
     }
 
   private:
-    int m_cur_step = -2; // not valid state at the start
+    inline static int m_cur_step = -2; // not valid state at the start
 };
 IMPLEMENT_VMETHOD_INTERPOSE(tracking_stage_load_region, logic);
 
-static void install_reset_point() {
+// reset point on New Arena
+struct tracking_stage_new_arena : df::viewscreen_new_arenast {
+    typedef df::viewscreen_new_arenast interpose_base;
+
+    DEFINE_VMETHOD_INTERPOSE(void, logic, ()) {
+        if (this->m_cur_step != this->cur_step) {
+            this->m_cur_step = this->cur_step;
+            if (this->m_cur_step == 0)
+                reset_texpos();
+        }
+        INTERPOSE_NEXT(logic)();
+    }
+
+  private:
+    inline static int m_cur_step = -2; // not valid state at the start
+};
+IMPLEMENT_VMETHOD_INTERPOSE(tracking_stage_new_arena, logic);
+
+static void
+  install_reset_point() {
     INTERPOSE_HOOK(tracking_stage_new_region, logic).apply();
     INTERPOSE_HOOK(tracking_stage_adopt_region, logic).apply();
     INTERPOSE_HOOK(tracking_stage_load_region, logic).apply();
+    INTERPOSE_HOOK(tracking_stage_new_arena, logic).apply();
 }
 
 static void uninstall_reset_point() {
     INTERPOSE_HOOK(tracking_stage_new_region, logic).remove();
     INTERPOSE_HOOK(tracking_stage_adopt_region, logic).remove();
     INTERPOSE_HOOK(tracking_stage_load_region, logic).remove();
+    INTERPOSE_HOOK(tracking_stage_new_arena, logic).remove();
 }
 
 const uint32_t TILE_WIDTH_PX = 8;
