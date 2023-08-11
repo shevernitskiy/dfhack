@@ -1,4 +1,3 @@
-#include <algorithm>
 #include <mutex>
 #include <unordered_map>
 
@@ -83,7 +82,7 @@ SDL_Surface * canonicalize_format(SDL_Surface *src) {
   return tgt;
 }
 
-// add texture and get texpos
+// register surface in texture raws, get a texpos
 static long add_texture(SDL_Surface* surface) {
     std::lock_guard<std::mutex> lg_add_texture(g_adding_mutex);
     auto texpos = enabler->textures.raws.size();
@@ -93,10 +92,11 @@ static long add_texture(SDL_Surface* surface) {
 
 TexposHandle Textures::loadTexture(SDL_Surface* surface) {
     if (!surface)
-        return 0;
-    auto handle = reinterpret_cast<uintptr_t>(surface); // not the best way, but fast and cheap
+        return 0; // should be some error, i guess
+
+    auto handle = reinterpret_cast<uintptr_t>(surface); // not the best way? but cheap
     g_handle_to_surface.emplace(handle, surface);
-    surface->refcount++;
+    surface->refcount++; // one more copy please - prevent destruct on next FreeSurface by game
     auto texpos = add_texture(surface);
     g_handle_to_texpos.emplace(handle, texpos);
     return handle;
@@ -105,17 +105,17 @@ TexposHandle Textures::loadTexture(SDL_Surface* surface) {
 std::optional<long> Textures::getTexposByHandle(TexposHandle handle) {
     if (!handle)
         return std::nullopt;
-    // search for existing texpos
+
     if (auto it = g_handle_to_texpos.find(handle); it != g_handle_to_texpos.end())
         return it->second;
-    // if not, search for cached texture and register new one
+
     if (auto it = g_handle_to_surface.find(handle); it != g_handle_to_surface.end()) {
-      it->second->refcount++;
+      it->second->refcount++; // one more copy please - prevent destruct on next FreeSurface by game
       auto texpos = add_texture(it->second);
       g_handle_to_texpos.emplace(handle, texpos);
       return texpos;
     }
-    // no data for this handle, get a new one
+
     return std::nullopt;
 }
 
@@ -126,8 +126,9 @@ static void reset_texpos() {
 
 // should not be triggered in normal scenario
 static void reset_surface() {
-    std::for_each(g_handle_to_surface.begin(), g_handle_to_surface.end(),
-                    [](auto& entry) { DFSDL_FreeSurface(entry.second); });
+    for (auto& entry : g_handle_to_surface) {
+        DFSDL_FreeSurface(entry.second);
+    }
     g_handle_to_surface.clear();
 }
 
@@ -200,10 +201,10 @@ static void uninstall_reset_point() {
 const uint32_t TILE_WIDTH_PX = 8;
 const uint32_t TILE_HEIGHT_PX = 12;
 
-static size_t load_textures_from_image(color_ostream & out, const char * fname,
-                            long *texpos_start,
-                            int tile_w = TILE_WIDTH_PX,
-                            int tile_h = TILE_HEIGHT_PX) {
+static size_t load_tiles_from_image(color_ostream & out, const char * fname,
+                                        long *texpos_start,
+                                        int tile_w = TILE_WIDTH_PX,
+                                        int tile_h = TILE_HEIGHT_PX) {
     SDL_Surface *s = DFIMG_Load(fname);
     if (!s) {
         out.printerr("unable to load textures from '%s'\n", fname);
@@ -264,31 +265,31 @@ void Textures::init(color_ostream &out) {
 
     bool is_pre_world = num_textures == textures.init_texture_size;
 
-    g_num_dfhack_textures = load_textures_from_image(out, "hack/data/art/dfhack.png",
+    g_num_dfhack_textures = load_tiles_from_image(out, "hack/data/art/dfhack.png",
                                                     &g_dfhack_logo_texpos_start);
-    g_num_dfhack_textures += load_textures_from_image(out, "hack/data/art/green-pin.png",
+    g_num_dfhack_textures += load_tiles_from_image(out, "hack/data/art/green-pin.png",
                                                     &g_green_pin_texpos_start);
-    g_num_dfhack_textures += load_textures_from_image(out, "hack/data/art/red-pin.png",
+    g_num_dfhack_textures += load_tiles_from_image(out, "hack/data/art/red-pin.png",
                                                     &g_red_pin_texpos_start);
-    g_num_dfhack_textures += load_textures_from_image(out, "hack/data/art/icons.png",
+    g_num_dfhack_textures += load_tiles_from_image(out, "hack/data/art/icons.png",
                                                     &g_icons_texpos_start);
-    g_num_dfhack_textures += load_textures_from_image(out, "hack/data/art/on-off.png",
+    g_num_dfhack_textures += load_tiles_from_image(out, "hack/data/art/on-off.png",
                                                     &g_on_off_texpos_start);
-    g_num_dfhack_textures += load_textures_from_image(out, "hack/data/art/pathable.png",
+    g_num_dfhack_textures += load_tiles_from_image(out, "hack/data/art/pathable.png",
                                                     &g_pathable_texpos_start, 32, 32);
-    g_num_dfhack_textures += load_textures_from_image(out, "hack/data/art/unsuspend.png",
+    g_num_dfhack_textures += load_tiles_from_image(out, "hack/data/art/unsuspend.png",
                                                     &g_unsuspend_texpos_start, 32, 32);
-    g_num_dfhack_textures += load_textures_from_image(out, "hack/data/art/control-panel.png",
+    g_num_dfhack_textures += load_tiles_from_image(out, "hack/data/art/control-panel.png",
                                                     &g_control_panel_texpos_start);
-    g_num_dfhack_textures += load_textures_from_image(out, "hack/data/art/border-thin.png",
+    g_num_dfhack_textures += load_tiles_from_image(out, "hack/data/art/border-thin.png",
                                                     &g_thin_borders_texpos_start);
-    g_num_dfhack_textures += load_textures_from_image(out, "hack/data/art/border-medium.png",
+    g_num_dfhack_textures += load_tiles_from_image(out, "hack/data/art/border-medium.png",
                                                     &g_medium_borders_texpos_start);
-    g_num_dfhack_textures += load_textures_from_image(out, "hack/data/art/border-bold.png",
+    g_num_dfhack_textures += load_tiles_from_image(out, "hack/data/art/border-bold.png",
                                                     &g_bold_borders_texpos_start);
-    g_num_dfhack_textures += load_textures_from_image(out, "hack/data/art/border-panel.png",
+    g_num_dfhack_textures += load_tiles_from_image(out, "hack/data/art/border-panel.png",
                                                     &g_panel_borders_texpos_start);
-    g_num_dfhack_textures += load_textures_from_image(out, "hack/data/art/border-window.png",
+    g_num_dfhack_textures += load_tiles_from_image(out, "hack/data/art/border-window.png",
                                                     &g_window_borders_texpos_start);
 
     DEBUG(textures,out).print("loaded %ld textures\n", g_num_dfhack_textures);

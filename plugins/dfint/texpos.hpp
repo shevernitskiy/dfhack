@@ -11,7 +11,6 @@
 #include "modules/DFSDL.h"
 
 #include <execution>
-#include <functional>
 #include <mutex>
 #include <optional>
 #include <unordered_map>
@@ -138,8 +137,9 @@ private:
 
   // should not be triggered in normal scenario
   void reset_surface() {
-    std::for_each(std::execution::par, handle_to_surface.begin(), handle_to_surface.end(),
-                  [](auto& entry) { DFHack::DFSDL::DFSDL_FreeSurface(entry.second); });
+    for (auto& entry : handle_to_surface) {
+      DFHack::DFSDL::DFSDL_FreeSurface(entry.second);
+    }
     handle_to_surface.clear();
   }
 
