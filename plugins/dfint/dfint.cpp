@@ -370,12 +370,12 @@ void replace_tile(int32_t x, int32_t y, ScreenType screen_type, wchar_t symbol) 
 
   long texpos = 0;
   if (auto it = g_texpos_handle_cache.find(ws); it != g_texpos_handle_cache.end()) {
-    texpos = Textures::getTexposByHandle(it->second).value(); // handle NULLOPT!
+    texpos = Textures::getTexposByHandle(it->second); // handle NULLOPT!
   } else {
     auto texture = TTFManager::instance().GetTextureWS(std::wstring{ symbol }, flag);
     auto handle = Textures::loadTexture(texture);
     g_texpos_handle_cache.emplace(ws, handle);
-    texpos = Textures::getTexposByHandle(handle).value();
+    texpos = Textures::getTexposByHandle(handle);
   }
 
   pen.ch = 0;                                       // clear default char on the tile
