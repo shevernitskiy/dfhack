@@ -21,7 +21,7 @@ using namespace DFHack;
 using namespace DFHack::DFSDL;
 
 namespace DFHack {
-DBG_DECLARE(core, textures, DebugCategory::LINFO);
+    DBG_DECLARE(core, textures, DebugCategory::LINFO);
 }
 
 static std::unordered_map<TexposHandle, long> g_handle_to_texpos;
@@ -32,7 +32,6 @@ const uint32_t TILE_WIDTH_PX = 8;
 const uint32_t TILE_HEIGHT_PX = 12;
 
 static std::vector<TexposHandle> empty{};
-
 static std::unordered_map<std::string, std::vector<TexposHandle>> g_static_assets{
     {"hack/data/art/dfhack.png", empty},       {"hack/data/art/green-pin.png", empty},
     {"hack/data/art/red-pin.png", empty},      {"hack/data/art/icons.png", empty},
@@ -155,6 +154,14 @@ long Textures::getTexposByHandle(TexposHandle handle) {
     return -1;
 }
 
+long Textures::getAsset(const std::string asset, size_t index) {
+    if (!g_static_assets.contains(asset))
+        return -1;
+    if (g_static_assets[asset].size() <= index)
+        return -1;
+    return Textures::getTexposByHandle(g_static_assets[asset][index]);
+}
+
 static void reset_texpos() {
     g_handle_to_texpos.clear();
 }
@@ -191,7 +198,7 @@ struct tracking_stage_adopt_region : df::viewscreen_adopt_regionst {
     DEFINE_VMETHOD_INTERPOSE(void, logic, ()) {
         if (this->m_cur_step != this->cur_step) {
             this->m_cur_step = this->cur_step;
-            if (this->m_cur_step == df::viewscreen_adopt_regionst::T_cur_step::ProcessingRawData)
+            if (this->m_cur_step == 2)
                 reset_texpos();
         }
         INTERPOSE_NEXT(logic)();
@@ -209,7 +216,7 @@ struct tracking_stage_load_region : df::viewscreen_loadgamest {
     DEFINE_VMETHOD_INTERPOSE(void, logic, ()) {
         if (this->m_cur_step != this->cur_step) {
             this->m_cur_step = this->cur_step;
-            if (this->m_cur_step == df::viewscreen_loadgamest::T_cur_step::ProcessingRawData)
+            if (this->m_cur_step == 1)
                 reset_texpos();
         }
         INTERPOSE_NEXT(logic)();
@@ -260,19 +267,11 @@ void Textures::init(color_ostream& out) {
         g_static_assets[key] = Textures::loadTileset(key);
     }
 
-    DEBUG(textures, out).print("static assets loaded");
+    DEBUG(textures, out).print("assets loaded");
 }
 
 void Textures::cleanup() {
     reset_texpos();
     reset_surface();
     uninstall_reset_point();
-}
-
-long Textures::getAsset(const std::string asset, size_t index) {
-    if (!g_static_assets.contains(asset))
-        return -1;
-    if (g_static_assets[asset].size() <= index)
-        return -1;
-    return Textures::getTexposByHandle(g_static_assets[asset][index]);
 }
