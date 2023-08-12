@@ -913,10 +913,10 @@ local BASE_FRAME = {
 }
 
 local function make_frame(name, double_line)
-    local texpos = dfhack.textures['get'..name..'BordersTexposStart']()
     local tp = function(offset)
+        local texpos = dfhack.textures.getAsset('hack/data/art/border-'..name:lower()..'.png', offset)
         if texpos == -1 then return nil end
-        return texpos + offset
+        return texpos
     end
 
     local frame = copyall(BASE_FRAME)
